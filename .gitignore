@@ -1,0 +1,10 @@
+/build/
+/dist/
+/htmlcov/
+__pycache__
+*.swp
+.DS_Store
+.coverage
+coverage.xml
+*.py[co]
+*.egg-info

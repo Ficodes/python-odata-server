@@ -1,0 +1,10 @@
+[run]
+branch = True
+source = odata_server
+omit =
+        *test*
+
+
+[report]
+omit =
+        *test*
