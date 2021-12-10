@@ -248,6 +248,19 @@ class UtilsTestCase(unittest.TestCase):
                 {"ID": {"$eq": "[]"}}
             ),
             (
+                "contains(ID, '001522abc%5Bs%5B')",
+                {"ID": {"$regex": "001522abc\\[s\\["}}
+            ),
+            (
+                "contains(ID, '001522abc%5Bs%5B') or B eq '3'",
+                {
+                    "$or": [
+                        {"ID": {"$regex": "001522abc\\[s\\["}},
+                        {"B": {"$eq": '3'}},
+                    ]
+                }
+            ),
+            (
                 "client_bar_code eq null and client_references eq []",
                 {
                     "client_bar_code": {"$eq": None},
