@@ -263,6 +263,74 @@ class UtilsTestCase(unittest.TestCase):
                     ]
                 }
             ),
+            (
+                "client_bar_code eq null or is_nulled eq true or category in (1, 2)",
+                {
+                    "$or": [
+                        {"client_bar_code": {"$eq": None}},
+                        {"is_nulled": {"$eq": True}},
+                        {"category": {"$in": [1, 2]}},
+                    ],
+                }
+            ),
+            (
+                "client_bar_code eq null or is_nulled eq true and category in (1, 2) or D eq 1",
+                {
+                    "$or": [
+                        {"client_bar_code": {"$eq": None}},
+                        {
+                            "is_nulled": {"$eq": True},
+                            "category": {
+                                "$in": [1, 2]
+                            }
+                        },
+                        {"D": {"$eq": 1}},
+                    ],
+                }
+            ),
+            (
+                "(client_bar_code eq null or is_nulled eq true) and (category in (1, 2))",
+                {
+                    "$or": [
+                        {"client_bar_code": {"$eq": None}},
+                        {"is_nulled": {"$eq": True}},
+                    ],
+                    "category": {
+                        "$in": [1, 2]
+                    }
+                }
+            ),
+            (
+                "(A eq 1 and B gt 10 or is_nulled eq true) or category in (1, 2)",
+                {
+                    "$or": [
+                        {"A": {"$eq": 1}, "B": {"$gt": 10}},
+                        {"is_nulled": {"$eq": True}},
+                        {"category": {
+                            "$in": [1, 2]
+                        }}
+                    ]
+                }
+            ),
+            (
+                "(A eq 1 or B gt 10 and is_nulled eq true) or (C in (1, 2) and D eq true)",
+                {
+                    "$or": [
+                        {"A": {"$eq": 1}},
+                        {"B": {"$gt": 10}, "is_nulled": {"$eq": True}},
+                        {"C": {"$in": [1, 2]}, "D": {"$eq": True}},
+                    ]
+                }
+            ),
+            (
+                "(A eq 1 and B gt 10) and (C in (1, 2) and D eq true)",
+                {
+                    "A": {"$eq": 1},
+                    "B": {"$gt": 10},
+                    "C": {"$in": [1, 2]},
+                    "D": {"$eq": True},
+                }
+            ),
         )
 
         for expr, expected in test_data:

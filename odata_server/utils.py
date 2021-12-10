@@ -135,7 +135,25 @@ def parse_primitive_literal(node):
         abort(501)
 
 
-def process_common_expr(tree, filters, entity_type, prefix):
+def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
+    if joinop == "orExpr":
+        filters.append({})
+
+    if tree.children[0].name == "parenExpr":
+        if len(tree.children) == 1:
+            tree = tree.children[0].children[2]
+        elif len(tree.children) == 2 and tree.children[1].name in ("orExpr", "andExpr"):
+            process_common_expr(tree.children[0].children[2], filters, entity_type, prefix)
+
+            if tree.children[1].name == "andExpr" and len(filters) > 1:
+                or_filters = filters.copy()
+                filters.clear()
+                filters.append({"$or": or_filters})
+
+            return process_common_expr(tree.children[1].children[3].children[0], filters, entity_type, prefix, tree.children[1].name)
+        else:
+            abort(501)
+
     if tree.children[0].name == "firstMemberExpr":
         expr = tree.children[1].children[3]
         if tree.children[1].name not in SUPPORTED_EXPRESSIONS:
@@ -165,31 +183,19 @@ def process_common_expr(tree, filters, entity_type, prefix):
             field = prop_name
 
         expr_type = tree.children[1].name
-        filters[field] = {
+        filters[-1][field] = {
             EXPR_MAPPING[expr_type]: value
         }
 
         lastNode = expr.children[-1]
-        if lastNode.name == "andExpr":
+        if lastNode.name in ("orExpr", "andExpr"):
             process_common_expr(
                 lastNode.children[3].children[0],
                 filters,
                 entity_type,
-                prefix
+                prefix,
+                lastNode.name
             )
-        elif lastNode.name == "orExpr":
-            second_filter_exp = {}
-            process_common_expr(
-                lastNode.children[3].children[0],
-                second_filter_exp,
-                entity_type,
-                prefix
-            )
-            filters["$or"] = [
-                {field: filters[field]},
-                second_filter_exp
-            ]
-            del filters[field]
 
     else:
         abort(501)
@@ -225,10 +231,13 @@ def process_collection_filters(filter_arg, filters, entity_type, prefix=""):
         except abnf.parser.ParseError:
             abort(400)
 
-        if tree.children[0].name == "parenExpr":
-            tree = tree.children[0].children[2]
+        new_filters = [{}]
+        process_common_expr(tree, new_filters, entity_type, prefix, "andExpr")
 
-        process_common_expr(tree, filters, entity_type, prefix=prefix)
+        if len(new_filters) > 1:
+            filters["$or"] = new_filters
+        else:
+            filters.update(new_filters[0])
 
     return filters
 
