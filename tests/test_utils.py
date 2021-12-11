@@ -252,6 +252,14 @@ class UtilsTestCase(unittest.TestCase):
                 {"ID": {"$regex": "001522abc\\[s\\["}}
             ),
             (
+                "contains(ID, '001522abc%5Bs%5B') eq true",
+                {"ID": {"$regex": "001522abc\\[s\\["}}
+            ),
+            (
+                "contains(ID, '001522abc%5Bs%5B') eq false",
+                {"ID": {"$regex": "(?!001522abc\\[s\\[)"}}
+            ),
+            (
                 "contains(ID, '001522abc%5Bs%5B') or B eq '3'",
                 {
                     "$or": [
@@ -261,10 +269,26 @@ class UtilsTestCase(unittest.TestCase):
                 }
             ),
             (
+                "B eq null and startswith(ID, '001522abc%5Bs%5B')",
+                {
+                    "ID": {"$regex": "^001522abc\\[s\\["},
+                    "B": {"$eq": None},
+                }
+            ),
+            (
                 "client_bar_code eq null and client_references eq []",
                 {
                     "client_bar_code": {"$eq": None},
                     "client_references": {"$eq": []}
+                }
+            ),
+            (
+                "(B eq null or endswith(ID, '001522abc%5Bs%5B'))",
+                {
+                    "$or": [
+                        {"B": {"$eq": None}},
+                        {"ID": {"$regex": "001522abc\\[s\\[$"}},
+                    ]
                 }
             ),
             (

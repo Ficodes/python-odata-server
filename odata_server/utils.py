@@ -192,14 +192,28 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
     elif expresion_name == "methodCallExpr" and tree.children[0].children[0].name == "boolMethodCallExpr":
         methodExpr = tree.children[0].children[0].children[0]
         args = [node for node in methodExpr.children[2:-1] if node.name == "commonExpr"]
+        prop_name = args[0].value
+        if prefix != "" and prop_name not in entity_type.key_properties:
+            field = "{}.{}".format(prefix, prop_name)
+        else:
+            field = prop_name
+
+        negation = False
+        if len(tree.children) > 1 and tree.children[1].name == "eqExpr":
+            negation = tree.children[1].children[3].value == "false"
+
+        regex_literal = re.escape(parse_primitive_literal(args[1].children[0].children[0]))
         if methodExpr.name == "containsMethodCallExpr":
-            prop_name = args[0].value
-            if prefix != "" and prop_name not in entity_type.key_properties:
-                field = "{}.{}".format(prefix, prop_name)
-            else:
-                field = prop_name
             filters[-1][field] = {
-                "$regex": re.escape(parse_primitive_literal(args[1].children[0].children[0]))
+                "$regex": "(?!{})".format(regex_literal) if negation else regex_literal
+            }
+        elif methodExpr.name == "startsWithMethodCallExpr":
+            filters[-1][field] = {
+                "$regex": ("^(?!{})" if negation else "^{}").format(regex_literal)
+            }
+        elif methodExpr.name == "endsWithMethodCallExpr":
+            filters[-1][field] = {
+                "$regex": ("(?<!{})$" if negation else "{}$").format(regex_literal)
             }
         else:
             abort(501)
