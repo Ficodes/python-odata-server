@@ -252,7 +252,7 @@ def parse_qs(qs):
 STRIP_WHITESPACE_FROM_URLENCODED_RE = re.compile(r"(?:^(?:\s|%20|%09|%0A|%0D|%0B|%0C)+|(?:\s|%20|%09|%0A|%0D|%0B|%0C)+$)")
 
 
-def process_collection_filters(filter_arg, filters, entity_type, prefix=""):
+def process_collection_filters(filter_arg, search_arg, filters, entity_type, prefix=""):
     # Extra feature not required by OData spec: strip whitespace
     filter_arg = STRIP_WHITESPACE_FROM_URLENCODED_RE.sub("", filter_arg)
     if filter_arg != "":
@@ -268,6 +268,9 @@ def process_collection_filters(filter_arg, filters, entity_type, prefix=""):
             filters["$or"] = new_filters
         else:
             filters.update(new_filters[0])
+
+    if search_arg != "":
+        filters["$text"] = {"$search": search_arg}
 
     return filters
 
@@ -525,7 +528,8 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
 
     # Process filters
     filter_arg = qs.get("$filter", "").strip()
-    filters = process_collection_filters(filter_arg, filters, subject.entity_type, prefix=prefix)
+    search_arg = qs.get("$search", "").strip()
+    filters = process_collection_filters(filter_arg, search_arg, filters, subject.entity_type, prefix=prefix)
 
     # Process expand fields
     expand_details = process_expand_fields(RootEntitySet, subject.entity_type, request.args.get("$expand", ""), projection, prefix=prefix)

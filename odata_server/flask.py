@@ -225,8 +225,6 @@ def get_property(mongo, EntitySet, id_value, prefers, Property, raw=False):
 
 
 def get_collection_count(edmx, mongo, EntitySet, filters=None):
-    mongo_collection = mongo.get_collection(EntitySet.mongo_collection)
-
     # Process filters
     if filters is None:
         filters = {
@@ -234,7 +232,10 @@ def get_collection_count(edmx, mongo, EntitySet, filters=None):
         }
 
     filter_arg = request.args.get("$filter", "").strip()
-    filters = process_collection_filters(filter_arg, filters, EntitySet.entity_type)
+    search_arg = request.args.get("$search", "").strip()
+    filters = process_collection_filters(filter_arg, search_arg, filters, EntitySet.entity_type)
+
+    mongo_collection = mongo.get_collection(EntitySet.mongo_collection)
     count = mongo_collection.count_documents(filters)
 
     headers = build_response_headers()
