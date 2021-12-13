@@ -183,23 +183,25 @@ class Annotation(EdmItem):
     String = meta.attribute(str)
     EnumMember = meta.attribute(str)
 
+    @property
+    def value(self):
+        if self.String:
+            return self.String
+        elif self.Decimal is not None:
+            return self.Decimal
+        elif self.Bool:
+            return self.Bool
+        elif self.EnumMember:
+            return self.EnumMember
+        else:
+            return None
+
     def json(self):
         key = "@{}".format(self.Term)
         if self.Qualifier is not None:
             key += "#{}".format(self.Qualifier)
 
-        if self.String:
-            value = self.String
-        elif self.Decimal is not None:
-            value = self.Decimal
-        elif self.Bool:
-            value = self.Bool
-        elif self.EnumMember:
-            value = self.EnumMember
-        else:
-            value = None
-
-        return key, value
+        return key, self.value
 
 
 class OnDelete(EdmItem):
@@ -360,6 +362,17 @@ class Reference(EdmItem):
         ]
 
 
+def pop_annotation(item, annotation, default=""):
+    if annotation in item.annotations:
+        value = item.annotations[annotation].value
+        item.Annotations.remove(item.annotations[annotation])
+        del item.annotations[annotation]
+
+        return value
+    else:
+        return default
+
+
 class Edmx(EdmItem):
 
     prefix = "edmx"
@@ -371,3 +384,78 @@ class Edmx(EdmItem):
     Version = meta.static_attribute("4.0")
     DataServices = meta.element(DataServices, required=True)
     References = meta.element(list, items=Reference)
+
+    def get_entity_type(self, type):
+        for schema in self.DataServices.Schemas:
+            if not type.startswith(schema.Namespace) and (schema.Alias is None or not type.startswith(schema.Alias)):
+                continue
+
+            for entity_type in schema.EntityTypes:
+                if type in ("{}.{}".format(schema.Namespace, entity_type.Name), "{}.{}".format(schema.Alias, entity_type.Name)):
+                    return entity_type
+
+        # Not found
+        return None
+
+    def process(self):
+        for schema in self.DataServices.Schemas:
+            schema.entity_types_by_id = {
+                e.Name: e
+                for e in schema.EntityTypes
+            }
+
+            for entity_type in schema.EntityTypes:
+                virtual_entities = set()
+                for navigation_property in entity_type.NavigationProperties:
+                    navigation_property.iscollection = navigation_property.Type.startswith("Collection(")
+                    type_name = navigation_property.Type[11:-1] if navigation_property.iscollection else navigation_property.Type
+                    type_name = type_name.rsplit(".", 1)[1]
+                    navigation_property.entity_type = schema.entity_types_by_id[type_name]
+                    navigation_property.annotations = {
+                        a.Term: a for a in navigation_property.Annotations
+                    }
+                    if "PythonODataServer.Embedded" in navigation_property.annotations:
+                        # TODO check annotation value
+                        navigation_property.isembedded = True
+                        virtual_entities.add(navigation_property.Name)
+                        navigation_property.Annotations.remove(navigation_property.annotations["PythonODataServer.Embedded"])
+                        del navigation_property.annotations["PythonODataServer.Embedded"]
+                    else:
+                        navigation_property.isembedded = False
+                entity_type.virtual_entities = virtual_entities
+                entity_type.key_properties = tuple(p.Name for p in entity_type.Key.PropertyRefs)
+
+                entity_type.annotations = {
+                    a.Term: a for a in entity_type.Annotations
+                }
+                entity_type.properties = {
+                    t.Name: t for t in entity_type.Properties
+                }
+                entity_type.navproperties = {
+                    t.Name: t for t in entity_type.NavigationProperties
+                }
+                entity_type.property_list = tuple(entity_type.properties.values())
+
+            for container in schema.EntityContainers:
+                container.Annotations.append(Annotation({"Term": "Org.OData.Core.V1.ODataVersions", "String": "4.0"}))
+                container.Annotations.append(Annotation({"Term": "Org.OData.Capabilities.V1.ConformanceLevel", "EnumMember": "Org.OData.Capabilities.V1.ConformanceLevelType/Minimal"}))
+                container.entity_sets_by_id = {
+                    s.Name: s
+                    for s in container.EntitySets
+                }
+
+                for entity_set in container.EntitySets:
+                    entity_set.annotations = {
+                        a.Term: a for a in entity_set.Annotations
+                    }
+                    entity_set.bindings = {
+                        navbinding.Path: container.entity_sets_by_id[navbinding.Target]
+                        for navbinding in entity_set.NavigationPropertyBindings
+                    }
+                    entity_set.entity_type = self.get_entity_type(entity_set.EntityType)
+
+                    # Mongo collection to use
+                    entity_set.mongo_collection = pop_annotation(entity_set, "PythonODataServer.MongoCollection", entity_set.Name.lower())
+
+                    # Mongo sub-document prefix to use
+                    entity_set.prefix = pop_annotation(entity_set, "PythonODataServer.MongoPrefix")
