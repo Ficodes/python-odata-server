@@ -354,7 +354,7 @@ def post_entity_set(mongo, edmx, EntitySet, body):
     persisted = False
     if EntitySet.custom_insert_business:
         try:
-            result = EntitySet.custom_insert_business(body, EntitySet)
+            result = EntitySet.custom_insert_business(EntitySet, body)
         except werkzeug.exceptions.HTTPException as e:
             if e.code not in (403, 409, 422):
                 raise Exception("Invalid error response from custom_insert_business")

@@ -2,7 +2,7 @@ import json
 import unittest
 import xml.etree.cElementTree as ET
 
-from odata_server.edm import DataServices, Edmx, EntitySet, EntityType, Record, Schema
+from odata_server.edm import Annotation, DataServices, Edmx, EntitySet, EntityType, Record, Schema
 
 ENTITY_TYPE1 = {
     "Name": "Shipping",
@@ -60,6 +60,72 @@ ENTITY_SET1 = {
 
 
 class EdmUnitTests(unittest.TestCase):
+
+    def test_annotation(self):
+        # Attribute annotations
+        test_data = (
+            ("String", "abc", "abc"),
+            ("Bool", "true", True),
+            ("Integer", "5", 5),
+        )
+        for field, value, expected_value in test_data:
+            with self.subTest(field=field, value=value):
+                a = Annotation({
+                    "Term": "OneTerm",
+                    field: value
+                })
+                self.assertEqual(a.Term, "OneTerm")
+                self.assertEqual(a.value, expected_value)
+                self.assertEqual(
+                    ET.tostring(a.xml(), encoding="utf-8").decode("utf-8"),
+                    '<Annotation {}="{}" Term="OneTerm" />'.format(field, value)
+                )
+
+        # Element annotations
+        test_data = (
+            (
+                "Null",
+                [],
+                None,
+                "<Null />",
+            ),
+            (
+                "Null",
+                [{"Term": "Core.Description", "String": "No rating provided"}],
+                None,
+                '<Null><Annotation String="No rating provided" Term="Core.Description" /></Null>',
+            ),
+            (
+                "Collection",
+                [{"String": "abc"}, {"Null": []}, {"Collection": [{"Integer": 5}, {"Bool": True}]}],
+                ["abc", None, [5, True]],
+                "<Collection><String>abc</String><Null /><Collection><Integer>5</Integer><Bool>true</Bool></Collection></Collection>",
+            ),
+            (
+                "Record",
+                {"Type": "ComplexType1", "PropertyValues": [{"Property": "Insertable", "Bool": True}]},
+                {
+                    "Insertable": True
+                },
+                '<Record Type="ComplexType1"><PropertyValue Bool="true" Property="Insertable" /></Record>',
+            ),
+        )
+        for field, value, expected_value, subelement in test_data:
+            with self.subTest(field=field, value=value):
+                a = Annotation({
+                    "Term": "OneTerm",
+                    field: value
+                })
+                self.assertEqual(a.Term, "OneTerm")
+                self.assertEqual(a.value, expected_value)
+                self.assertEqual(
+                    ET.tostring(a.xml(), encoding="utf-8").decode("utf-8"),
+                    '<Annotation Term="OneTerm">{}</Annotation>'.format(subelement)
+                )
+                self.assertEqual(
+                    a.json()[1],
+                    getattr(a, field).json()
+                )
 
     def test_entity_set_minimal(self):
         e = EntitySet({
@@ -148,7 +214,7 @@ class EdmUnitTests(unittest.TestCase):
             "PropertyValues": [
                 {"Property": "Insertable", "Bool": True},
                 {"Property": "NonInsertableNavigationProperties", "Collection": []},
-                {"Property": "NonInsertableProperties", "Collection": [{"String": "manifest_datetime"}]},
+                {"Property": "NonInsertableProperties", "Collection": [{"PropertyPath": "manifest_datetime"}]},
             ]
         })
         self.assertEqual(r.json(), {

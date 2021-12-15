@@ -7,50 +7,6 @@ import xml.etree.cElementTree as ET
 from odata_server import meta
 
 
-class PrimitiveType(object):
-
-    def __init__(self, className: str):
-        self.className = className
-
-    def __str__(self):
-        return self.className
-
-
-Binary = PrimitiveType("Edm.Binary")
-Boolean = PrimitiveType("Edm.Boolean")
-Byte = PrimitiveType("Edm.Byte")
-Date = PrimitiveType("Edm.Date")
-DateTimeOffset = PrimitiveType("Edm.DateTimeOffset")
-Decimal = PrimitiveType("Edm.Decimal")
-Double = PrimitiveType("Edm.Double")
-Duration = PrimitiveType("Edm.Duration")
-Guid = PrimitiveType("Edm.Guid")
-Int16 = PrimitiveType("Edm.Int16")
-Int32 = PrimitiveType("Edm.Int32")
-Int64 = PrimitiveType("Edm.Int64")
-SByte = PrimitiveType("Edm.SByte")
-Single = PrimitiveType("Edm.Single")
-Stream = PrimitiveType("Edm.Stream")
-String = PrimitiveType("Edm.String")
-TimeOfDay = PrimitiveType("Edm.TimeOfDay")
-Geography = PrimitiveType("Edm.Geography")
-GeographyPoint = PrimitiveType("Edm.GeographyPoint")
-GeographyLineString = PrimitiveType("Edm.GeographyLineString")
-GeographyPolygon = PrimitiveType("Edm.GeographyPolygon")
-GeographyMultiPoint = PrimitiveType("Edm.GeographyMultiPoint")
-GeographyMultiLineString = PrimitiveType("Edm.GeographyMultiLineString")
-GeographyMultiPolygon = PrimitiveType("Edm.GeographyMultiPolygon")
-GeographyCollection = PrimitiveType("Edm.GeographyCollection")
-Geometry = PrimitiveType("Edm.Geometry")
-GeometryPoint = PrimitiveType("Edm.GeometryPoint")
-GeometryLineString = PrimitiveType("Edm.GeometryLineString")
-GeometryPolygon = PrimitiveType("Edm.GeometryPolygon")
-GeometryMultiPoint = PrimitiveType("Edm.GeometryMultiPoint")
-GeometryMultiLineString = PrimitiveType("Edm.GeometryMultiLineString")
-GeometryMultiPolygon = PrimitiveType("Edm.GeometryMultiPolygon")
-GeometryCollection = PrimitiveType("Edm.GeometryCollection")
-
-
 class EdmItemBase(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -92,8 +48,10 @@ class EdmItem(metaclass=EdmItemBase):
                 setattr(self, attr_name, [attr.items(item, self) for item in value])
             elif issubclass(attr.type, EdmItem) and value is not None:
                 setattr(self, attr_name, attr.type(value))
+            elif value is not None:
+                setattr(self, attr_name, attr.type(value))
             else:
-                setattr(self, attr_name, value)
+                setattr(self, attr_name, None)
 
     def xml(self):
         root = ET.Element(self.__class__._xml_tag)
@@ -177,42 +135,120 @@ class EdmItem(metaclass=EdmItemBase):
         return data
 
 
+class Null(EdmItem):
+
+    Annotations = meta.element(list, items="Annotation")
+
+    def __init__(self, annotations: Optional[list] = None, parent: Optional[EdmItemBase] = None):
+        self.parent = parent
+
+        if annotations is None:
+            self.Annotations = []
+        else:
+            self.Annotations = [Annotation(item, self) for item in annotations]
+
+    def xml(self):
+        root = ET.Element("Null")
+        for annotation in self.Annotations:
+            root.append(annotation.xml())
+        return root
+
+    def json(self):
+        if len(self.Annotations) == 0:
+            return None
+
+        result = {
+            "$Null": None,
+        }
+        for annotation in self.Annotations:
+            key, value = annotation.json()
+            result[key] = value
+
+        return result
+
+
 class Collection(EdmItem):
 
     Items = meta.element(list, items="ValueExpressionItem")
 
-    def json(self):
+    @property
+    def value(self):
         return [i.value for i in self.Items]
+
+    def xml(self):
+        root = ET.Element("Collection")
+
+        for Item in self.Items:
+            root.append(Item.subxml())
+
+        return root
+
+    def json(self):
+        return [i.subjson() for i in self.Items]
 
 
 class ValueExpressionItem(EdmItem):
 
+    String = meta.attribute(str)
     Integer = meta.attribute(int)
     Decimal = meta.attribute(float)  # TODO
     Bool = meta.attribute(bool)
-    String = meta.attribute(str)
     EnumMember = meta.attribute(str)
+    PropertyPath = meta.attribute(str)
     Path = meta.attribute(str)
+    Null = meta.element(Null)
 
     Collection = meta.element("Collection")
     Record = meta.element("Record")
 
+    all_types = ("String", "Integer", "Decimal", "Bool", "EnumMember", "PropertyPath", "Path", "Collection", "Record", "Null")
+    attr_types = ("String", "Integer", "Decimal", "Bool", "EnumMember", "PropertyPath", "Path")
+    _type = None
+
+    @property
+    def type(self):
+        if self._type is None:
+            for field in self.all_types:
+                if getattr(self, field) is not None:
+                    self._type = field
+                    break
+
+        return self._type
+
     @property
     def value(self):
-        if self.String:
-            return self.String
-        elif self.Decimal is not None:
-            return self.Decimal
-        elif self.Bool:
-            return self.Bool
-        elif self.EnumMember:
-            return self.EnumMember
-        elif self.Path:
-            return self.Path
+        if self.type in self.attr_types:
+            return getattr(self, self.type)
+        elif self.Collection:
+            return self.Collection.value
+        elif self.Record:
+            return self.Record.value
+        else:
+            return None
+
+    def subxml(self):
+        if self.type == "Null":
+            return self.Null.xml()
+
+        if self.type in self.attr_types:
+            root = ET.Element(self.type)
+            if self.type == "Bool":
+                root.text = "true" if self.value else "false"
+            else:
+                root.text = str(self.value)
+            return root
+        else:
+            return getattr(self, self.type).xml()
+
+    def subjson(self):
+        if self.type in self.attr_types:
+            return getattr(self, self.type)
         elif self.Collection:
             return self.Collection.json()
         elif self.Record:
             return self.Record.json()
+        elif self.Null:
+            return self.Null.json()
         else:
             return None
 
@@ -228,13 +264,21 @@ class Record(EdmItem):
     PropertyValues = meta.element(list, items=PropertyValue)
     Annotations = meta.element(list, items="Annotation")
 
+    @property
+    def value(self):
+        return {
+            p.Property: p.value
+            for p in self.PropertyValues
+        }
+
     def json(self):
         result = {}
         if self.Type is not None and self.Type != "":
             result["@type"] = self.Type
 
         for annotation in self.Annotations:
-            result["@{}".format(annotation.Term)] = annotation.value
+            key, value = annotation.json()
+            result[key] = value
 
         for propertyvalue in self.PropertyValues:
             result[propertyvalue.Property] = propertyvalue.value
@@ -255,7 +299,7 @@ class Annotation(ValueExpressionItem):
         if self.Qualifier is not None:
             key += "#{}".format(self.Qualifier)
 
-        return key, self.value
+        return key, self.subjson()
 
 
 class OnDelete(EdmItem):

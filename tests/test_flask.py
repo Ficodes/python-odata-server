@@ -151,7 +151,7 @@ edmx = {
 }
 
 
-def custom_insert_business(body, RootEntitySet):
+def custom_insert_business(RootEntitySet, body):
     body["ReleaseDate"] = "2021-12-03"
 
 
