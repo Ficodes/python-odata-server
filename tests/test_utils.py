@@ -224,10 +224,11 @@ class UtilsTestCase(unittest.TestCase):
                 "ID ge 10",
                 {"ID": {"$gte": 10}}
             ),
-            (
-                " %20ID ne 3.4",
-                {"ID": {"$ne": 3.4}}
-            ),
+            # This kind of test is now not required as parse_qs removes leading and trailing spaces
+            # (
+            #     " %20ID ne 3.4",
+            #     {"ID": {"$ne": 3.4}}
+            # ),
             (
                 "ID eq '''a''b'",
                 {"ID": {"$eq": "'a'b"}}
@@ -373,7 +374,7 @@ class UtilsTestCase(unittest.TestCase):
         for expr, expected in test_data:
             with self.subTest(expr=expr):
                 filters = {}
-                process_collection_filters(expr, filters, {})
+                process_collection_filters(expr, "", filters, {})
                 self.assertEqual(filters, expected)
 
 

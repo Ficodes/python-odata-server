@@ -2,7 +2,7 @@ import json
 import unittest
 import xml.etree.cElementTree as ET
 
-from odata_server.edm import DataServices, Edmx, EntitySet, EntityType, Schema
+from odata_server.edm import DataServices, Edmx, EntitySet, EntityType, Record, Schema
 
 ENTITY_TYPE1 = {
     "Name": "Shipping",
@@ -134,6 +134,30 @@ class EdmUnitTests(unittest.TestCase):
         })
         self.assertEqual(len(d.Schemas), 1)
         self.assertEqual(type(d.json()), list)
+
+    def test_record_minimal(self):
+        r = Record({})
+        self.assertEqual(r.json(), {})
+
+    def test_record_full(self):
+        r = Record({
+            "Type": "ComplexType",
+            "Annotations": [
+                {"Term": "Core.Description", "String": "Annotation on record"},
+            ],
+            "PropertyValues": [
+                {"Property": "Insertable", "Bool": True},
+                {"Property": "NonInsertableNavigationProperties", "Collection": []},
+                {"Property": "NonInsertableProperties", "Collection": [{"String": "manifest_datetime"}]},
+            ]
+        })
+        self.assertEqual(r.json(), {
+            "@type": "ComplexType",
+            "@Core.Description": "Annotation on record",
+            "Insertable": True,
+            "NonInsertableNavigationProperties": [],
+            "NonInsertableProperties": ["manifest_datetime"],
+        })
 
     def test_schema_key_with_alias(self):
         s = Schema({

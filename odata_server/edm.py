@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
+import importlib
 from typing import Optional
 import xml.etree.cElementTree as ET
 
@@ -60,7 +61,10 @@ class EdmItemBase(type):
         new_class = super().__new__(cls, name, bases, attrs, **kwargs)
         class_name = new_class.__name__
 
-        new_class._attrs = {attr_name: attr for attr_name, attr in attrs.items() if isinstance(attr, meta.attribute)}
+        new_class._attrs = {}
+        for base in bases:
+            new_class._attrs.update(base._attrs)
+        new_class._attrs.update({attr_name: attr for attr_name, attr in attrs.items() if isinstance(attr, meta.attribute)})
         new_class._xml_tag = "{}:{}".format(prefix, class_name) if prefix is not None else class_name
         new_class._namespaces = namespaces
         new_class._defaultsubkind = defaultsubkind
@@ -110,6 +114,8 @@ class EdmItem(metaclass=EdmItemBase):
             elif attr.type == list and issubclass(attr.items, EdmItem):
                 for e in value:
                     root.append(e.xml())
+            elif type(value) == bool:
+                root.set(attr_name, "true" if value else "false")
             elif value is not None:
                 root.set(attr_name, str(value))
 
@@ -171,17 +177,25 @@ class EdmItem(metaclass=EdmItemBase):
         return data
 
 
-class Annotation(EdmItem):
+class Collection(EdmItem):
 
-    Term = meta.attribute(str, required=True)
-    Path = meta.attribute(str)
-    Qualifier = meta.attribute(str)
-    Target = meta.attribute(str)
+    Items = meta.element(list, items="ValueExpressionItem")
 
-    Decimal = meta.attribute(str)
-    Bool = meta.attribute(str)
+    def json(self):
+        return [i.value for i in self.Items]
+
+
+class ValueExpressionItem(EdmItem):
+
+    Integer = meta.attribute(int)
+    Decimal = meta.attribute(float)  # TODO
+    Bool = meta.attribute(bool)
     String = meta.attribute(str)
     EnumMember = meta.attribute(str)
+    Path = meta.attribute(str)
+
+    Collection = meta.element("Collection")
+    Record = meta.element("Record")
 
     @property
     def value(self):
@@ -193,8 +207,48 @@ class Annotation(EdmItem):
             return self.Bool
         elif self.EnumMember:
             return self.EnumMember
+        elif self.Path:
+            return self.Path
+        elif self.Collection:
+            return self.Collection.json()
+        elif self.Record:
+            return self.Record.json()
         else:
             return None
+
+
+class PropertyValue(ValueExpressionItem):
+
+    Property = meta.attribute(str, required=True)
+
+
+class Record(EdmItem):
+
+    Type = meta.attribute(str)
+    PropertyValues = meta.element(list, items=PropertyValue)
+    Annotations = meta.element(list, items="Annotation")
+
+    def json(self):
+        result = {}
+        if self.Type is not None and self.Type != "":
+            result["@type"] = self.Type
+
+        for annotation in self.Annotations:
+            result["@{}".format(annotation.Term)] = annotation.value
+
+        for propertyvalue in self.PropertyValues:
+            result[propertyvalue.Property] = propertyvalue.value
+
+        return result
+
+
+class Annotation(ValueExpressionItem):
+
+    Term = meta.attribute(str, required=True)
+    Qualifier = meta.attribute(str)
+    Target = meta.attribute(str)
+
+    Annotations = meta.element(list, items="Annotation")
 
     def json(self):
         key = "@{}".format(self.Term)
@@ -229,7 +283,7 @@ class Property(EdmItem):
 
     Name = meta.attribute(str, required=True)
     Type = meta.attribute(str, default="Edm.String")
-    Nullable = meta.attribute(bool, default=False)
+    Nullable = meta.attribute(bool, default=True)
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
@@ -362,6 +416,13 @@ class Reference(EdmItem):
         ]
 
 
+def get_annotation(item, annotation, default=""):
+    if annotation in item.annotations:
+        return item.annotations[annotation].value
+    else:
+        return default
+
+
 def pop_annotation(item, annotation, default=""):
     if annotation in item.annotations:
         value = item.annotations[annotation].value
@@ -371,6 +432,15 @@ def pop_annotation(item, annotation, default=""):
         return value
     else:
         return default
+
+
+def set_annotation_default_value(item, annotation, value):
+    if annotation in item.annotations:
+        return
+
+    new_annotation = Annotation({"Term": annotation, "Bool": value})
+    item.annotations[annotation] = new_annotation
+    item.Annotations.append(new_annotation)
 
 
 class Edmx(EdmItem):
@@ -391,11 +461,19 @@ class Edmx(EdmItem):
                 continue
 
             for entity_type in schema.EntityTypes:
-                if type in ("{}.{}".format(schema.Namespace, entity_type.Name), "{}.{}".format(schema.Alias, entity_type.Name)):
+                if type in entity_type.names:
                     return entity_type
 
         # Not found
         return None
+
+    def resolve_code_references(self):
+        for schema in self.DataServices.Schemas:
+            for container in schema.EntityContainers:
+                for entity_set in container.EntitySets:
+                    if type(entity_set.custom_insert_business) == str:
+                        module, func = entity_set.custom_insert_business.rsplit(".", 1)
+                        entity_set.custom_insert_business = getattr(importlib.import_module(module), func)
 
     def process(self):
         for schema in self.DataServices.Schemas:
@@ -405,6 +483,34 @@ class Edmx(EdmItem):
             }
 
             for entity_type in schema.EntityTypes:
+                entity_type.key_properties = tuple(p.Name for p in entity_type.Key.PropertyRefs)
+
+                entity_type.annotations = {
+                    a.Term: a for a in entity_type.Annotations
+                }
+
+                # Structural properties
+                entity_type.properties = {
+                    t.Name: t for t in entity_type.Properties
+                }
+                entity_type.property_list = tuple(entity_type.properties.values())
+                entity_type.computed_properties = set()
+                entity_type.nullable_properties = set()
+                for prop in entity_type.property_list:
+                    prop.annotations = {
+                        a.Term: a for a in prop.Annotations
+                    }
+                    computed = pop_annotation(prop, "Org.OData.Core.V1.Computed", False)
+                    prop.iscollection = prop.Type.startswith("Collection(")
+                    if computed:
+                        entity_type.computed_properties.add(prop.Name)
+                    if not prop.iscollection and prop.Nullable:
+                        entity_type.nullable_properties.add(prop.Name)
+
+                # Navigation properties
+                entity_type.navproperties = {
+                    t.Name: t for t in entity_type.NavigationProperties
+                }
                 virtual_entities = set()
                 for navigation_property in entity_type.NavigationProperties:
                     navigation_property.iscollection = navigation_property.Type.startswith("Collection(")
@@ -414,27 +520,13 @@ class Edmx(EdmItem):
                     navigation_property.annotations = {
                         a.Term: a for a in navigation_property.Annotations
                     }
-                    if "PythonODataServer.Embedded" in navigation_property.annotations:
-                        # TODO check annotation value
-                        navigation_property.isembedded = True
+                    navigation_property.isembedded = pop_annotation(navigation_property, "PythonODataServer.Embedded", False)
+                    if navigation_property.isembedded:
                         virtual_entities.add(navigation_property.Name)
-                        navigation_property.Annotations.remove(navigation_property.annotations["PythonODataServer.Embedded"])
-                        del navigation_property.annotations["PythonODataServer.Embedded"]
-                    else:
-                        navigation_property.isembedded = False
                 entity_type.virtual_entities = virtual_entities
-                entity_type.key_properties = tuple(p.Name for p in entity_type.Key.PropertyRefs)
-
-                entity_type.annotations = {
-                    a.Term: a for a in entity_type.Annotations
-                }
-                entity_type.properties = {
-                    t.Name: t for t in entity_type.Properties
-                }
-                entity_type.navproperties = {
-                    t.Name: t for t in entity_type.NavigationProperties
-                }
-                entity_type.property_list = tuple(entity_type.properties.values())
+                entity_type.names = set(("{}.{}".format(schema.Namespace, entity_type.Name),))
+                if schema.Alias is not None:
+                    entity_type.names.add("{}.{}".format(schema.Alias, entity_type.Name))
 
             for container in schema.EntityContainers:
                 container.Annotations.append(Annotation({"Term": "Org.OData.Core.V1.ODataVersions", "String": "4.0"}))
@@ -454,8 +546,15 @@ class Edmx(EdmItem):
                     }
                     entity_set.entity_type = self.get_entity_type(entity_set.EntityType)
 
+                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.TopSupported", True)
+                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.SkipSupported", True)
+                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.IndexableByKey", True)
+
                     # Mongo collection to use
                     entity_set.mongo_collection = pop_annotation(entity_set, "PythonODataServer.MongoCollection", entity_set.Name.lower())
 
                     # Mongo sub-document prefix to use
                     entity_set.prefix = pop_annotation(entity_set, "PythonODataServer.MongoPrefix")
+
+                    # Custom business logic
+                    entity_set.custom_insert_business = pop_annotation(entity_set, "PythonODataServer.CustomInsertBusinessLogic", None)

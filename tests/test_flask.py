@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import ANY, Mock, patch
 
 from flask import Flask
+import werkzeug
 
 from odata_server.flask import odata_bp
 
@@ -25,7 +26,7 @@ edmx = {
                         "Name": "Name",
                         "Type": "Edm.String",
                         "Nullable": False
-                    }
+                    },
                 ]
             },
             {
@@ -41,9 +42,27 @@ edmx = {
                     {
                         "Name": "Description",
                         "Type": "Edm.String",
+                        "Nullable": False,
                         "Annotations": [
                             {"Term": "Core.IsLanguageDependent"},
                         ],
+                    },
+                    {
+                        "Name": "Rating",
+                        "Type": "Edm.Int32",
+                    },
+                    {
+                        "Name": "ReleaseDate",
+                        "Type": "Edm.Date",
+                        "Nullable": False,
+                        "Annotations": [
+                            {"Term": "Org.OData.Core.V1.Computed", "Bool": True},
+                        ],
+                    },
+                    {
+                        "Name": "DiscontinuedDate",
+                        "Type": "Edm.Date",
+                        "Nullable": True,
                     },
                 ],
                 "NavigationProperties": [
@@ -108,6 +127,9 @@ edmx = {
                                 "Target": "PricePlans",
                             }
                         ],
+                        "Annotations": [
+                            {"Term": "PythonODataServer.CustomInsertBusinessLogic", "String": "tests.test_flask.custom_insert_business"}
+                        ]
                     },
                     {
                         "Name": "Categories",
@@ -129,6 +151,37 @@ edmx = {
 }
 
 
+def custom_insert_business(body, RootEntitySet):
+    body["ReleaseDate"] = "2021-12-03"
+
+
+DEFAULT_PREFERS = {
+    "maxpagesize": 25,
+    "return": "representation",
+}
+
+
+MINIMAL_PAYLOAD = {
+    "ID": 5,
+    "Description": "A new product"
+}
+
+FULL_PAYLOAD = {
+    "ID": 5,
+    "Description": "A new product",
+    "Rating": 3.4
+}
+
+FULL_PAYLOAD_DEEP = {
+    "ID": 5,
+    "Description": "A new product",
+    "Rating": 3.4,
+    "PricePlan": {
+        "ID": 1,
+        "Name": "Free"
+    }
+}
+
 mongo = Mock()
 app = Flask(__name__)
 app.register_blueprint(odata_bp, options={"mongo": mongo, "edmx": edmx}, url_prefix="")
@@ -137,7 +190,7 @@ app.register_blueprint(odata_bp, options={"mongo": mongo, "edmx": edmx}, url_pre
 class BluePrintTestCase(unittest.TestCase):
 
     def setUp(self):
-        mongo.reset_mock()
+        mongo.reset_mock(return_value=True, side_effect=True)
         self.app = app.test_client()
 
     def test_metadata_api_default_xml(self):
@@ -167,7 +220,7 @@ class BluePrintTestCase(unittest.TestCase):
         get.return_value = ({}, 200)
         response = self.app.get("/Products(5)")
         self.assertEqual(response.status_code, 200)
-        get.assert_called_once_with(mongo, ANY, ANY, {"ID": 5}, {"maxpagesize": 25})
+        get.assert_called_once_with(mongo, ANY, ANY, {"ID": 5}, DEFAULT_PREFERS)
 
     @patch("odata_server.flask.get")
     def test_get_entity_api_by_id_not_found(self, get):
@@ -175,21 +228,21 @@ class BluePrintTestCase(unittest.TestCase):
         response = self.app.get("/Products(5)")
         self.assertEqual(response.status_code, 404)
         # TODO check error response body
-        get.assert_called_once_with(mongo, ANY, ANY, {"ID": 5}, {"maxpagesize": 25})
+        get.assert_called_once_with(mongo, ANY, ANY, {"ID": 5}, DEFAULT_PREFERS)
 
     @patch("odata_server.flask.get_property")
     def test_get_entity_property_api_by_id(self, get_property):
         get_property.return_value = ({}, 200)
         response = self.app.get("/Products(5)/Description")
         self.assertEqual(response.status_code, 200)
-        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, {"maxpagesize": 25}, ANY, raw=False)
+        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=False)
 
     @patch("odata_server.flask.get_property")
     def test_get_entity_property_api_by_id_raw(self, get_property):
         get_property.return_value = ({}, 200)
         response = self.app.get("/Products(5)/Description/$value")
         self.assertEqual(response.status_code, 200)
-        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, {"maxpagesize": 25}, ANY, raw=True)
+        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=True)
 
     @patch("odata_server.flask.get_collection")
     def test_get_entity_collection_api_without_filters(self, get_collection):
@@ -283,7 +336,7 @@ class BluePrintTestCase(unittest.TestCase):
         )
         response = self.app.get("/Categories(0)/Products")
         self.assertEqual(response.status_code, 200)
-        get_collection.assert_called_once_with(mongo, ANY, ANY, {"maxpagesize": 25}, filters={"ID": {"$eq": 0}}, count=False)
+        get_collection.assert_called_once_with(mongo, ANY, ANY, DEFAULT_PREFERS, filters={"ID": {"$eq": 0}}, count=False)
 
     @patch("odata_server.flask.get")
     def test_get_entity_navigation_property_single_value_embedded(self, get):
@@ -312,6 +365,45 @@ class BluePrintTestCase(unittest.TestCase):
         )
         response = self.app.get("/Categories?$expand=Products")
         self.assertEqual(response.status_code, 200)
+
+    def test_post_entity_collection_single_entity(self):
+        for label, payload in (("Minimal payload", MINIMAL_PAYLOAD), ("Full payload", FULL_PAYLOAD)):
+            with self.subTest(msg=label):
+                mongo.reset_mock()
+                response = self.app.post("/Products", json=payload)
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
+                self.assertEqual(response.headers.get("Preference-Applied"), "return=representation")
+                mongo.get_collection().insert_one.assert_called_once()
+
+    def test_post_entity_collection_single_entity_invalid(self):
+        for field in MINIMAL_PAYLOAD.keys():
+            with self.subTest(removed_field=field):
+                payload = MINIMAL_PAYLOAD.copy()
+                del payload[field]
+
+                response = self.app.post("/Products", json=payload)
+                self.assertEqual(response.status_code, 400)
+                mongo.get_collection().insert_one.assert_not_called()
+
+    def test_post_entity_collection_single_entity_representation_minimal(self):
+        response = self.app.post("/Products", json=MINIMAL_PAYLOAD, headers={"Prefer": "return=minimal"})
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
+        self.assertEqual(response.headers.get("Preference-Applied"), "return=minimal")
+        mongo.get_collection().insert_one.assert_called_once()
+
+    def test_post_entity_collection_single_entity_duplicate_key(self):
+        mongo.get_collection().insert_one.side_effect = werkzeug.exceptions.Conflict()
+        response = self.app.post("/Products", json=MINIMAL_PAYLOAD)
+        self.assertEqual(response.status_code, 409)
+
+    def test_post_entity_collection_multiple_entities(self):
+        response = self.app.post("/Products", json=FULL_PAYLOAD_DEEP)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
+        self.assertEqual(response.headers.get("Preference-Applied"), "return=representation")
+        mongo.get_collection().insert_one.assert_called_once()
 
 
 if __name__ == "__main__":

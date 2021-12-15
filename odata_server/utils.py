@@ -27,6 +27,9 @@ EXPR_MAPPING = {
 SUPPORTED_EXPRESSIONS = tuple(EXPR_MAPPING.keys())
 
 
+STRIP_WHITESPACE_FROM_URLENCODED_RE = re.compile(r"(?:^(?:[ \t]|%20|%09)+|(?:[ \t]|%20|%09)+$)")
+
+
 class ODataGrammar(abnf.Rule):
     pass
 
@@ -63,11 +66,14 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def build_response_headers(maxpagesize=None, metadata="full", version="4.0"):
+def build_response_headers(maxpagesize=None, _return=None, metadata="full", version="4.0"):
     preferences = {}
 
-    if maxpagesize:
+    if maxpagesize is not None:
         preferences["odata.maxpagesize"] = maxpagesize
+
+    if _return is not None:
+        preferences["return"] = _return
 
     headers = {
         "Content-Type": "application/json;odata.metadata={};charset=utf-8".format(metadata),
@@ -242,19 +248,15 @@ def parse_qs(qs):
             nv.append("")
 
         name = unquote(nv[0].replace(b"+", b" ").decode("utf-8"))
-        value = nv[1].replace(b"+", b" ").decode("utf-8")
+        # Extra feature not required by OData spec: strip whitespace from get parameters
+        value = STRIP_WHITESPACE_FROM_URLENCODED_RE.sub("", nv[1].replace(b"+", b" ").decode("utf-8"))
         aslist.append((name, value))
         asdict[name] = value
 
     return asdict
 
 
-STRIP_WHITESPACE_FROM_URLENCODED_RE = re.compile(r"(?:^(?:\s|%20|%09|%0A|%0D|%0B|%0C)+|(?:\s|%20|%09|%0A|%0D|%0B|%0C)+$)")
-
-
 def process_collection_filters(filter_arg, search_arg, filters, entity_type, prefix=""):
-    # Extra feature not required by OData spec: strip whitespace
-    filter_arg = STRIP_WHITESPACE_FROM_URLENCODED_RE.sub("", filter_arg)
     if filter_arg != "":
         try:
             tree = ODataGrammar("commonExpr").parse_all(filter_arg)
@@ -434,12 +436,15 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
     return result
 
 
-def add_odata_annotations(data, entity_set):
-    id_value = {
+def extract_id_value(entity_type, data):
+    return {
         prop: data[prop]
-        for prop in entity_set.entity_type.key_properties
+        for prop in entity_type.key_properties
     }
-    key_predicate = format_key_predicate(id_value)
+
+
+def add_odata_annotations(data, entity_set):
+    key_predicate = format_key_predicate(extract_id_value(entity_set.entity_type, data))
     data["@odata.id"] = "{}({})".format(url_for("odata.{}".format(entity_set.Name), _external=True), key_predicate)
     data["@odata.etag"] = 'W/"{}"'.format(data["uuid"])
     del data["uuid"]
@@ -527,8 +532,8 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     projection = build_initial_projection(subject.entity_type, select, prefix=prefix)
 
     # Process filters
-    filter_arg = qs.get("$filter", "").strip()
-    search_arg = qs.get("$search", "").strip()
+    filter_arg = qs.get("$filter", "")
+    search_arg = qs.get("$search", "")
     filters = process_collection_filters(filter_arg, search_arg, filters, subject.entity_type, prefix=prefix)
 
     # Process expand fields
@@ -622,8 +627,12 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     return make_response(data, status=200, headers=headers)
 
 
-def make_response(data, status=200, etag=None, headers={}):
-    body = json.dumps(data, ensure_ascii=False, sort_keys=True, cls=JSONEncoder).encode("utf-8")
+def make_response(data=None, status=200, etag=None, headers={}):
+    if data is not None:
+        body = json.dumps(data, ensure_ascii=False, sort_keys=True, cls=JSONEncoder).encode("utf-8")
+    else:
+        body = None
+
     response = Response(body, status, headers=headers)
     if etag is not None:
         response.set_etag(etag, weak=True)
