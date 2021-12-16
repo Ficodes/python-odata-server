@@ -404,7 +404,9 @@ def crop_result(result, prefix):
     if root in result:
         value = result[root]
         for path in paths:
-            if path in value:
+            if type(value) == list and int(path) in value:
+                value = value[int(path)]
+            elif path in value:
                 value = value[path]
             else:
                 value = {}
