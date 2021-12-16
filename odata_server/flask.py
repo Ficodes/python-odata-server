@@ -253,21 +253,32 @@ def get(mongo, RootEntitySet, subject, id_value, prefers):
     return make_response(data, status=200, etag=etag, headers=headers)
 
 
+def deref_multi(data, keys):
+    return deref_multi(data[keys[0]], keys[1:]) \
+        if keys else data
+
+
 def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
     mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
     prefix = get_mongo_prefix(RootEntitySet, Property)
 
     mongo_field = Property.Name if prefix == "" else "{}.{}".format(prefix, Property.Name)
+    filters = id_value.copy()
+    filters["uuid"] = {"$exists": True}
+    if prefix != "":
+        filters[prefix] = {"$exists": True}
 
-    data = mongo_collection.find_one(id_value, {mongo_field: 1})
-    if raw:
-        data = data[mongo_field]
-    else:
+    data = mongo_collection.find_one(filters, {mongo_field: 1})
+    if data is None:
+        abort(404)
+
+    data = deref_multi(data, mongo_field.split("."))
+    if not raw:
         keyPredicate = format_key_predicate(id_value)
         anchor = "{}({})/{}".format(RootEntitySet.Name, keyPredicate, Property.Name)
         data = {
             "@odata.context": "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor),
-            "value": data[mongo_field]
+            "value": data
         }
     headers = build_response_headers()
     return make_response(data, status=200, headers=headers)
