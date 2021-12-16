@@ -13,6 +13,7 @@ from flask import abort, request, Response, url_for
 import uuid
 
 from odata_server import edm
+from odata_server.utils.mongo import get_mongo_prefix
 
 
 EXPR_MAPPING = {
@@ -34,7 +35,7 @@ class ODataGrammar(abnf.Rule):
     pass
 
 
-ODataGrammar.from_file(os.path.join(os.path.dirname(__file__), "data", "odata.abnf"))
+ODataGrammar.from_file(os.path.join(os.path.dirname(__file__), "..", "data", "odata.abnf"))
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -519,14 +520,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     offset = int(request.args.get("$skip", "0"))
 
     # Check if we need to apply a prefix to mongodb fields
-    if isinstance(subject, edm.NavigationProperty):
-        prefix = subject.Name if subject.isembedded and subject.entity_type != RootEntitySet.entity_type else ""
-        if RootEntitySet.prefix != "" and prefix != "":
-            prefix = "{}.{}".format(RootEntitySet.prefix, prefix)
-        elif RootEntitySet.prefix != "" and prefix == "":
-            prefix = RootEntitySet.prefix
-    else:
-        prefix = subject.prefix
+    prefix = get_mongo_prefix(RootEntitySet, subject)
 
     select = request.args.get("$select", "")
     projection = build_initial_projection(subject.entity_type, select, prefix=prefix)

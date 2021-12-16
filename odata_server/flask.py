@@ -11,6 +11,7 @@ import werkzeug
 
 from odata_server import edm
 from odata_server.utils import add_odata_annotations, build_initial_projection, build_response_headers, expand_result, extract_id_value, format_key_predicate, get_collection, ODataGrammar, make_response, parse_key_predicate, parse_qs, process_collection_filters, process_expand_fields
+from odata_server.utils.mongo import get_mongo_prefix
 
 
 class ODataBluePrint(Blueprint):
@@ -187,19 +188,6 @@ def parse_prefer_header(value, version="4.0"):
     return data
 
 
-def get_mongo_prefix(RootEntitySet, subject):
-    if isinstance(subject, edm.NavigationProperty):
-        prefix = subject.Name if subject.isembedded and subject.entity_type != RootEntitySet.entity_type else ""
-        if RootEntitySet.prefix != "" and prefix != "":
-            return "{}.{}".format(RootEntitySet.prefix, prefix)
-        elif RootEntitySet.prefix != "" and prefix == "":
-            return RootEntitySet.prefix
-        else:
-            return prefix
-
-    return subject.prefix
-
-
 def get(mongo, RootEntitySet, subject, id_value, prefers):
     qs = parse_qs(request.query_string)
     EntityType = subject.entity_type
@@ -265,17 +253,21 @@ def get(mongo, RootEntitySet, subject, id_value, prefers):
     return make_response(data, status=200, etag=etag, headers=headers)
 
 
-def get_property(mongo, EntitySet, id_value, prefers, Property, raw=False):
-    mongo_collection = mongo.get_collection(EntitySet.mongo_collection)
-    data = mongo_collection.find_one(id_value, {Property.Name: 1})
+def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
+    mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
+    prefix = get_mongo_prefix(RootEntitySet, Property)
+
+    mongo_field = Property.Name if prefix == "" else "{}.{}".format(prefix, Property.Name)
+
+    data = mongo_collection.find_one(id_value, {mongo_field: 1})
     if raw:
-        data = data[Property.Name]
+        data = data[mongo_field]
     else:
         keyPredicate = format_key_predicate(id_value)
-        anchor = "{}({})/{}".format(EntitySet.Name, keyPredicate, Property.Name)
+        anchor = "{}({})/{}".format(RootEntitySet.Name, keyPredicate, Property.Name)
         data = {
             "@odata.context": "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor),
-            "value": data[Property.Name]
+            "value": data[mongo_field]
         }
     headers = build_response_headers()
     return make_response(data, status=200, headers=headers)
