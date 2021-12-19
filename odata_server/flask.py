@@ -70,8 +70,7 @@ class ODataBluePrint(Blueprint):
                     )
 
                     if update_restrictions["Updatable"]:
-                        # POST is required for Salesforce
-                        entry_methods.extend(["PATCH", "POST"])
+                        entry_methods.append("PATCH")
 
                     # Check delete configuration
                     delete_restrictions = edm.get_annotation(
@@ -385,7 +384,7 @@ def validate_insert_payload(body, EntityType, deepinsert=False):
 
 def patch_entity_set(mongo, edmx, EntitySet, id_value, body):
     logger.debug("If-Match: {}".format(request.headers.get("If-Match", "")))
-    logger.debug(json.stringify(body, indent=4))
+    logger.debug(json.dumps(body, indent=4))
 
     prefers = parse_prefer_header(request.headers.get("Prefer", ""))
     prefix = get_mongo_prefix(EntitySet, EntitySet, seq=id_value.get("Seq"))
