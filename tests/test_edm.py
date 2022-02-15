@@ -205,6 +205,13 @@ class EdmUnitTests(unittest.TestCase):
         r = Record({})
         self.assertEqual(r.json(), {})
 
+    def test_record_simple(self):
+        r = Record({
+            "Insertable": True,
+            "NonInsertableProperties": ["manifest_datetime"]
+        })
+        self.assertEqual(r.json(), {})
+
     def test_record_full(self):
         r = Record({
             "Type": "ComplexType",
