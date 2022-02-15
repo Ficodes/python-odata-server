@@ -23,7 +23,9 @@ jobs:
       - name: Use Python
         uses: actions/setup-python@v2
       - name: Build
-        run: ./setup.py bdist_wheel
+        run: |
+          pip install wheel
+          ./setup.py bdist_wheel
       - name: Upload build wheel
         uses: actions/upload-artifact@v2
         with:
