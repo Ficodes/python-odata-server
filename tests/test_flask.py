@@ -279,6 +279,7 @@ class BluePrintTestCase(unittest.TestCase):
     def test_get_entity_collection_api_basic_filters(self):
         test_data = (
             ("Basic eq operator", "Name eq 'Bread'"),
+            ("Basic eq operator (dates)", "ReleaseDate eq 2022-02-15"),
             ("Logical or", "Name eq 'Bread' or Price gt 10"),
         )
         for label, filter_expr in test_data:

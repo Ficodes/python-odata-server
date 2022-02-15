@@ -158,7 +158,15 @@ class UtilsTestCase(unittest.TestCase):
             ),
             (
                 "ID lt 2021-11-29",
-                {"ID": {"$lt": datetime.datetime(2021, 11, 29, 0, 0, tzinfo=datetime.timezone.utc)}}
+                {"ID": {"$lt": "2021-11-29"}}
+            ),
+            (
+                "ID gt 2022-02-15T10:40:30Z",
+                {"ID": {"$gt": datetime.datetime(2022, 2, 15, 10, 40, 30, 0, tzinfo=datetime.timezone.utc)}}
+            ),
+            (
+                "ID lt 2022-02-15T10:40:30.545Z",
+                {"ID": {"$lt": datetime.datetime(2022, 2, 15, 10, 40, 30, 545000, tzinfo=datetime.timezone.utc)}}
             ),
             (
                 "ID le 10",

@@ -1,6 +1,5 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
-import datetime
 import unittest
 from unittest.mock import Mock
 
@@ -17,7 +16,7 @@ class ParseUtilsTestCase(unittest.TestCase):
             ("(3.5)", {"ID": 3.5}),
             ("('5')", {"ID": "5"}),
             ("(ID=5)", {"ID": 5}),
-            ("(ID=2021-10-20)", {"ID": datetime.datetime(2021, 10, 20, 0, 0, tzinfo=datetime.timezone.utc)}),
+            ("(ID=2021-10-20)", {"ID": "2021-10-20"}),
         )
         for predicate, expected in test_data:
             with self.subTest(predicate=predicate):
