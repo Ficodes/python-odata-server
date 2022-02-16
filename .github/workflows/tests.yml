@@ -52,6 +52,7 @@ jobs:
           architecture: x64
       - name: Setup python dependencies
         run: |
+          pip install -q -r requirements.txt
           pip install coverage
       - name: Run tests
         run: |
