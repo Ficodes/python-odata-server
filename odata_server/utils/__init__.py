@@ -122,9 +122,18 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             field = prop_name
 
         expr_type = tree.children[1].name
-        filters[-1][field] = {
-            EXPR_MAPPING[expr_type]: value
-        }
+        current_filter = filters[-1].setdefault(field, {})
+        mongo_op = EXPR_MAPPING[expr_type]
+        if mongo_op in current_filter:
+            # Resolve conflict
+            if expr_type in ("gtExpr", "geExpr"):
+                current_filter[mongo_op] = max(value, current_filter[mongo_op])
+            elif expr_type in ("ltExpr", "leExpr"):
+                current_filter[mongo_op] = min(value, current_filter[mongo_op])
+            else:
+                abort(501)
+        else:
+            current_filter[mongo_op] = value
 
         lastNode = expr.children[-1]
     elif expresion_name == "methodCallExpr" and tree.children[0].children[0].name == "boolMethodCallExpr":

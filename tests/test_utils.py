@@ -198,7 +198,50 @@ class UtilsTestCase(unittest.TestCase):
                 {
                     "ID": {"$in": ["a", "b"]},
                     "client_bar_code": {"$eq": None},
-                }
+                },
+            ),
+            (
+                "(ReleaseDate ge 2022-02-06T23:00:00Z and ReleaseDate le 2022-02-13T23:00:00Z)",
+                {
+                    "ReleaseDate": {
+                        "$lte": datetime.datetime(2022, 2, 13, 23, 0, tzinfo=datetime.timezone.utc),
+                        "$gte": datetime.datetime(2022, 2, 6, 23, 0, tzinfo=datetime.timezone.utc),
+                    }
+                },
+            ),
+            (
+                "(ReleaseDate le 2022-02-13T23:00:00Z and ReleaseDate le 2022-02-06T23:00:00Z)",
+                {
+                    "ReleaseDate": {
+                        "$lte": datetime.datetime(2022, 2, 6, 23, 0, tzinfo=datetime.timezone.utc),
+                    }
+                },
+            ),
+            (
+                # Check order does not affect this
+                "(ReleaseDate le 2022-02-06T23:00:00Z and ReleaseDate le 2022-02-13T23:00:00Z)",
+                {
+                    "ReleaseDate": {
+                        "$lte": datetime.datetime(2022, 2, 6, 23, 0, tzinfo=datetime.timezone.utc),
+                    }
+                },
+            ),
+            (
+                "(ReleaseDate ge 2022-02-06T23:00:00Z and ReleaseDate ge 2022-02-13T23:00:00Z)",
+                {
+                    "ReleaseDate": {
+                        "$gte": datetime.datetime(2022, 2, 13, 23, 0, tzinfo=datetime.timezone.utc),
+                    }
+                },
+            ),
+            (
+                # Check order does not affect this
+                "(ReleaseDate ge 2022-02-13T23:00:00Z and ReleaseDate ge 2022-02-06T23:00:00Z)",
+                {
+                    "ReleaseDate": {
+                        "$gte": datetime.datetime(2022, 2, 13, 23, 0, tzinfo=datetime.timezone.utc),
+                    }
+                },
             ),
             (
                 "ID eq%20%27%5B%5D%27",
