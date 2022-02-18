@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
 import datetime
 import unittest
@@ -167,6 +167,10 @@ class UtilsTestCase(unittest.TestCase):
             (
                 "ID lt 2022-02-15T10:40:30.545Z",
                 {"ID": {"$lt": datetime.datetime(2022, 2, 15, 10, 40, 30, 545000, tzinfo=datetime.timezone.utc)}}
+            ),
+            (
+                "ID lt 2022-02-15T10%3A40%3A30Z",
+                {"ID": {"$lt": datetime.datetime(2022, 2, 15, 10, 40, 30, tzinfo=datetime.timezone.utc)}}
             ),
             (
                 "ID le 10",

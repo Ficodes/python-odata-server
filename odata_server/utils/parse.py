@@ -30,7 +30,7 @@ def parse_primitive_literal(node):
     elif value_type in ("booleanValue", "decimalValue", "int16Value", "int32Value", "int64Value", "nullValue"):
         return json.loads(value)
     elif value_type in ("dateTimeOffsetValueInUrl",):
-        return arrow.get(value).datetime
+        return arrow.get(unquote(value)).datetime
     elif value_type in ("dateValue",):
         return arrow.get(value).format("YYYY-MM-DD")
     else:
