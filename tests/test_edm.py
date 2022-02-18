@@ -1,8 +1,42 @@
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
+
 import json
 import unittest
 import xml.etree.cElementTree as ET
 
-from odata_server.edm import Annotation, DataServices, Edmx, EntitySet, EntityType, Record, Schema
+from odata_server import edm
+
+
+ACTION1 = {
+    "Name": "Release",
+    "IsBound": False,
+    "Parameters": [
+        {"Name": "product", "Type": "ODataDemo.Product"},
+    ]
+}
+
+ACTION2 = {
+    "Name": "Release",
+    "IsBound": False,
+    "Parameters": [
+        {"Name": "product", "Type": "ODataDemo.Product"},
+        {"Name": "product", "Type": "ODataDemo.Product"},
+    ],
+    "ReturnType": {
+        "Type": "Edm.Bool"
+    }
+}
+
+ACTION3 = {
+    "Name": "Release",
+    "IsBound": True,
+    "Parameters": [
+        {"Name": "version", "Type": "Edm.String", "Unicode": False},
+    ],
+    "ReturnType": {
+        "Type": "Edm.Bool"
+    }
+}
 
 ENTITY_TYPE1 = {
     "Name": "Shipping",
@@ -34,6 +68,9 @@ ENTITY_TYPE2 = {
 SCHEMA1 = {
     "Namespace": "Testing",
     "Alias": "t",
+    "Actions": [
+        ACTION1,
+    ],
     "EntityTypes": [
         ENTITY_TYPE1,
         ENTITY_TYPE2,
@@ -61,6 +98,33 @@ ENTITY_SET1 = {
 
 class EdmUnitTests(unittest.TestCase):
 
+    def test_action_minimal(self):
+        e = edm.Action({
+            "Name": "Release",
+        })
+
+        self.assertEqual(e.Name, "Release")
+        self.assertEqual(e.IsBound, False)
+        self.assertEqual(e.EntitySetPath, None)
+        self.assertEqual(len(e.Parameters), 0)
+        self.assertEqual(len(e.Annotations), 0)
+
+        with self.subTest(msg="JSON serialization"):
+            e.json()
+
+        with self.subTest(msg="XML serialization"):
+            e.xml()
+
+    def test_action(self):
+        for desc in (ACTION1, ACTION2, ACTION3):
+            a = edm.Action(desc)
+
+            with self.subTest(msg="JSON serialization"):
+                a.json()
+
+            with self.subTest(msg="XML serialization"):
+                a.xml()
+
     def test_annotation(self):
         # Attribute annotations
         test_data = (
@@ -70,7 +134,7 @@ class EdmUnitTests(unittest.TestCase):
         )
         for field, value, expected_value in test_data:
             with self.subTest(field=field, value=value):
-                a = Annotation({
+                a = edm.Annotation({
                     "Term": "OneTerm",
                     field: value
                 })
@@ -112,7 +176,7 @@ class EdmUnitTests(unittest.TestCase):
         )
         for field, value, expected_value, subelement in test_data:
             with self.subTest(field=field, value=value):
-                a = Annotation({
+                a = edm.Annotation({
                     "Term": "OneTerm",
                     field: value
                 })
@@ -128,7 +192,7 @@ class EdmUnitTests(unittest.TestCase):
                 )
 
     def test_entity_set_minimal(self):
-        e = EntitySet({
+        e = edm.EntitySet({
             "Name": "Products",
             "EntityType": "Product"
         })
@@ -142,7 +206,7 @@ class EdmUnitTests(unittest.TestCase):
             e.json()
 
     def test_entity_set_full(self):
-        e = EntitySet(ENTITY_SET1)
+        e = edm.EntitySet(ENTITY_SET1)
 
         self.assertEqual(e.Name, "Products")
         self.assertEqual(e.IncludeInServiceDocument, False)
@@ -153,7 +217,7 @@ class EdmUnitTests(unittest.TestCase):
             e.json()
 
     def test_entity_type_minimal(self):
-        e = EntityType({
+        e = edm.EntityType({
             "Name": "h"
         })
 
@@ -161,7 +225,7 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(e.Properties), 0)
 
     def test_entity_type_full(self):
-        e = EntityType(ENTITY_TYPE1)
+        e = edm.EntityType(ENTITY_TYPE1)
 
         self.assertEqual(e.Name, "Shipping")
         self.assertEqual(len(e.Key.PropertyRefs), 1)
@@ -169,31 +233,31 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(e.Properties), 3)
 
     def test_schema_minimal(self):
-        s = Schema({
+        s = edm.Schema({
             "Namespace": "Testing"
         })
         self.assertEqual(s.Namespace, "Testing")
 
     def test_schema_full(self):
-        s = Schema(SCHEMA1)
+        s = edm.Schema(SCHEMA1)
         self.assertEqual(s.Namespace, "Testing")
         self.assertEqual(s.Alias, "t")
         self.assertEqual(len(s.EntityTypes), 2)
 
     def test_dataservices_minimal(self):
-        d = DataServices([{
+        d = edm.DataServices([{
             "Namespace": "Testing",
         }])
         self.assertEqual(len(d.Schemas), 1)
 
     def test_dataservices_full(self):
-        d = DataServices([
+        d = edm.DataServices([
             SCHEMA1
         ])
         self.assertEqual(len(d.Schemas), 1)
 
     def test_dataservices_full_verbose(self):
-        d = DataServices({
+        d = edm.DataServices({
             "Schemas": [
                 SCHEMA1
             ]
@@ -201,19 +265,93 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(d.Schemas), 1)
         self.assertEqual(type(d.json()), list)
 
+    def test_parameter_minimal(self):
+        p = edm.Parameter({
+            "Name": "param",
+            "Type": "Edm.String"
+        })
+
+        with self.subTest(version="v4.0", format="json"):
+            self.assertEqual(
+                p.json(),
+                {
+                    "$Name": "param",
+                    "$Type": "Edm.String"
+                }
+            )
+
+        with self.subTest(version="v4.0", format="xml"):
+            self.assertEqual(
+                ET.tostring(p.xml()),
+                b'<Parameter Name="param" Type="Edm.String" />',
+            )
+
+        with self.subTest(version="v4.01", format="json"):
+            self.assertEqual(
+                p.json(version="4.01"),
+                {
+                    "$Name": "param",
+                    "$Type": "Edm.String"
+                }
+            )
+
+        with self.subTest(version="v4.01", format="xml"):
+            self.assertEqual(
+                ET.tostring(p.xml(version="4.01")),
+                b'<Parameter Name="param" Type="Edm.String" />',
+            )
+
+    def test_parameter_unicode(self):
+        p = edm.Parameter({
+            "Name": "param",
+            "Type": "Edm.String",
+            "Unicode": False,
+        })
+
+        with self.subTest(version="v4.0", format="json"):
+            self.assertEqual(
+                p.json(),
+                {
+                    "$Name": "param",
+                    "$Type": "Edm.String",
+                }
+            )
+
+        with self.subTest(version="v4.0", format="xml"):
+            self.assertEqual(
+                ET.tostring(p.xml()),
+                b'<Parameter Name="param" Type="Edm.String" />',
+            )
+
+        with self.subTest(version="v4.01"):
+            self.assertEqual(
+                p.json(version="4.01"),
+                {
+                    "$Name": "param",
+                    "$Type": "Edm.String",
+                    "$Unicode": False,
+                }
+            )
+
+        with self.subTest(version="v4.0", format="xml"):
+            self.assertEqual(
+                ET.tostring(p.xml(version="4.01")),
+                b'<Parameter Name="param" Type="Edm.String" Unicode="false" />',
+            )
+
     def test_record_minimal(self):
-        r = Record({})
+        r = edm.Record({})
         self.assertEqual(r.json(), {})
 
     def test_record_simple(self):
-        r = Record({
+        r = edm.Record({
             "Insertable": True,
             "NonInsertableProperties": ["manifest_datetime"]
         })
         self.assertEqual(r.json(), {})
 
     def test_record_full(self):
-        r = Record({
+        r = edm.Record({
             "Type": "ComplexType",
             "Annotations": [
                 {"Term": "Core.Description", "String": "Annotation on record"},
@@ -233,7 +371,7 @@ class EdmUnitTests(unittest.TestCase):
         })
 
     def test_schema_key_with_alias(self):
-        s = Schema({
+        s = edm.Schema({
             "Namespace": "ODataDemo",
             "EntityTypes": [
                 {
@@ -268,7 +406,7 @@ class EdmUnitTests(unittest.TestCase):
         print(json.dumps(s.json(), indent=4))
 
     def test_edmx(self):
-        edmx = Edmx({
+        edmx = edm.Edmx({
             "DataServices": [{
                 "Namespace": "ODataDemo",
                 "EntityTypes": [

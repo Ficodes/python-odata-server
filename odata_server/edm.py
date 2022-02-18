@@ -396,6 +396,16 @@ class EntitySet(EdmItem):
     Annotations = meta.element(list, items=Annotation)
 
 
+class ActionImport(EdmItem):
+
+    jsonkey = "Name"
+
+    Name = meta.attribute(str, required=True)
+    Action = meta.attribute(str, required=True)
+    EntitySet = meta.element(EntitySet)
+    Annotations = meta.element(list, items=Annotation)
+
+
 class EntityContainer(EdmItem):
 
     jsonkey = "Name"
@@ -404,7 +414,7 @@ class EntityContainer(EdmItem):
     EntitySets = meta.element(list, items=EntitySet)
     Annotations = meta.element(list, items=Annotation)
     # Singleton = meta.element(list, items=Singleton)
-    # ActionImport = meta.element(list, items=ActionImport)
+    ActionImport = meta.element(list, items=ActionImport)
     # FunctionImport = meta.element(list, items=FunctionImport)
 
 
@@ -423,13 +433,51 @@ class ComplexType(EdmItem):
     Annotations = meta.element(list, items=Annotation)
 
 
+class Parameter(EdmItem):
+
+    jsonkey = "Name"
+
+    Name = meta.attribute(str, required=True)
+    Type = meta.attribute(str, required=True)
+    Nullable = meta.attribute(bool, default=True)
+    MaxLength = meta.attribute(int)
+    Precision = meta.attribute(float)
+    Scale = meta.attribute(float)
+    Unicode = meta.attribute(bool, default=True, version="4.01")
+    SRID = meta.attribute(int)
+    Annotations = meta.element(list, items=Annotation)
+
+
+class ReturnType(EdmItem):
+
+    Type = meta.attribute(str, required=True)
+    Nullable = meta.attribute(bool, default=True)
+    MaxLength = meta.attribute(int)
+    Precision = meta.attribute(float)
+    Scale = meta.attribute(float)
+    SRID = meta.attribute(int)
+    Annotations = meta.element(list, items=Annotation)
+
+
+class Action(EdmItem):
+
+    jsonkey = "Name"
+
+    Name = meta.attribute(str, required=True)
+    IsBound = meta.attribute(bool, default=False)
+    EntitySetPath = meta.attribute(str)
+    Parameters = meta.element(list, items=Parameter)
+    # ReturnType = meta.element(ReturnType)
+    Annotations = meta.element(list, items=Annotation)
+
+
 class Schema(EdmItem):
 
     jsonkey = "Namespace"
 
     Namespace = meta.attribute(str, required=True)
     Alias = meta.attribute(str)
-    # Actions = meta.attribute(list, items=Action)
+    Actions = meta.attribute(list, items=Action)
     Annotations = meta.element(list, items=Annotation)
     ComplexTypes = meta.attribute(list, items=ComplexType)
     EntityContainers = meta.element(list, items=EntityContainer)
