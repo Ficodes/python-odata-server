@@ -1,14 +1,16 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
+
 from importlib import import_module
 
 
 class attribute():
 
-    def __init__(self, _type, static=None, default=None, required=False, items=None, min=None):
+    def __init__(self, _type, static=None, default=None, required=False, items=None, min=None, version="4.0"):
         self._type = _type
         self.static = static
         self.default = [] if _type == list and default is None else default
         self.required = required
+        self.version = version
 
         if _type == list:
             if items is None:

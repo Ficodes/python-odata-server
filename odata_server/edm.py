@@ -53,13 +53,16 @@ class EdmItem(metaclass=EdmItemBase):
             else:
                 setattr(self, attr_name, None)
 
-    def xml(self):
+    def xml(self, version="4.0"):
         root = ET.Element(self.__class__._xml_tag)
 
         for ns_prefix, ns_uri in self.__class__._namespaces.items():
             root.set("xmlns:{}".format(ns_prefix) if ns_prefix != "" else "xmlns", ns_uri)
 
         for attr_name, attr in self.__class__._attrs.items():
+            if attr.version > version:
+                continue
+
             if attr.static is not None:
                 root.set(attr_name, attr.static)
                 continue
@@ -72,14 +75,15 @@ class EdmItem(metaclass=EdmItemBase):
             elif attr.type == list and issubclass(attr.items, EdmItem):
                 for e in value:
                     root.append(e.xml())
-            elif type(value) == bool:
-                root.set(attr_name, "true" if value else "false")
-            elif value is not None:
-                root.set(attr_name, str(value))
+            elif attr.default is None or value != attr.default:
+                if type(value) == bool:
+                    root.set(attr_name, "true" if value else "false")
+                else:
+                    root.set(attr_name, str(value))
 
         return root
 
-    def json(self):
+    def json(self, version="4.0"):
         wrapped_element = self.__class__._wrapped_element
         if wrapped_element is not None:
             value = getattr(self, wrapped_element)
@@ -88,6 +92,9 @@ class EdmItem(metaclass=EdmItemBase):
         data = {}
 
         for attr_name, attr in self.__class__._attrs.items():
+            if attr.version > version:
+                continue
+
             final_attr_name = "${}".format(attr_name)
             if attr.static is not None:
                 data[final_attr_name] = attr.static
@@ -129,7 +136,7 @@ class EdmItem(metaclass=EdmItemBase):
                         if key in subvalue:
                             del subvalue[key]
                         data[key_value] = subvalue
-            elif value is not None:
+            elif value is not None and (attr.default is None or value != attr.default):
                 data[final_attr_name] = value
 
         return data
@@ -331,7 +338,7 @@ class Property(EdmItem):
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
-    Unicode = meta.attribute(bool)
+    Unicode = meta.attribute(bool, default=True, version="4.01")
     SRID = meta.attribute(int)
     ConcurrencyMode = meta.attribute(str)
     Annotations = meta.element(list, items=Annotation)
