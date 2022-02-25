@@ -1,18 +1,16 @@
 # Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
-import datetime
-import json
 import re
-from urllib.parse import urlencode
 
 import abnf
 from bson.son import SON
-from flask import abort, request, Response, url_for
-import uuid
+from flask import abort, request, url_for
 
 from odata_server import edm
+from odata_server.utils.http import build_response_headers, make_response
+from odata_server.utils.json import generate_collection_response
 from odata_server.utils.mongo import get_mongo_prefix
-from odata_server.utils.parse import ODataGrammar, parse_primitive_literal, parse_qs
+from odata_server.utils.parse import ODataGrammar, parse_array_or_object, parse_primitive_literal, parse_qs
 
 
 EXPR_MAPPING = {
@@ -25,52 +23,6 @@ EXPR_MAPPING = {
     "inExpr": "$in",
 }
 SUPPORTED_EXPRESSIONS = tuple(EXPR_MAPPING.keys())
-
-
-class JSONEncoder(json.JSONEncoder):
-    """JSON encoder that handles extra types compared to the
-    built-in :class:`json.JSONEncoder`.
-
-    -   :class:`datetime.datetime` and :class:`datetime.date` are
-        serialized to :rfc:`822` strings. This is the same as the HTTP
-        date format.
-    -   :class:`uuid.UUID` is serialized to a string.
-    """
-
-    def default(self, o):
-        if isinstance(o, datetime.datetime):
-            if o.tzinfo:
-                # eg: '2015-09-25T23:14:42.588601+00:00'
-                return o.isoformat('T')
-            else:
-                # No timezone present - assume UTC.
-                # eg: '2015-09-25T23:14:42.588601Z'
-                return o.isoformat('T') + 'Z'
-
-        if isinstance(o, datetime.date):
-            return o.isoformat()
-
-        if isinstance(o, uuid.UUID):
-            return str(o)
-
-        return json.JSONEncoder.default(self, o)
-
-
-def build_response_headers(maxpagesize=None, _return=None, metadata="full", version="4.0"):
-    preferences = {}
-
-    if maxpagesize is not None:
-        preferences["odata.maxpagesize"] = maxpagesize
-
-    if _return is not None:
-        preferences["return"] = _return
-
-    headers = {
-        "Content-Type": "application/json;odata.metadata={};charset=utf-8".format(metadata),
-        "OData-Version": "4.0",
-        "Preference-Applied": ",".join(["{}={}".format(key, value) for key, value in preferences.items()])
-    }
-    return headers
 
 
 def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
@@ -109,11 +61,10 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             if expr.children[0].name not in ("primitiveLiteral", "arrayOrObject"):
                 abort(501)
 
-            value_node = expr.children[0].children[0]
             if expr.children[0].name == "arrayOrObject":
-                value = json.loads(expr.children[0].value)
+                value = parse_array_or_object(expr.children[0])
             else:
-                value = parse_primitive_literal(value_node)
+                value = parse_primitive_literal(expr.children[0].children[0])
 
         prop_name = tree.children[0].value
         if prefix != "" and prop_name not in entity_type.key_properties:
@@ -427,6 +378,17 @@ def crop_result(result, prefix):
     return result
 
 
+def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix):
+    croped_result = crop_result(result, prefix)
+    expanded_result = expand_result(RootEntitySet, expand_details, croped_result, prefix=prefix)
+    return add_odata_annotations(expanded_result, RootEntitySet)
+
+
+def prepare_anonymous_result(result, RootEntitySet, expand_details, prefix):
+    croped_result = crop_result(result, prefix)
+    return expand_result(RootEntitySet, expand_details, croped_result, prefix=prefix)
+
+
 def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=False):
     qs = parse_qs(request.query_string)
 
@@ -472,7 +434,6 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         )
 
     # Get the results
-    # TODO Streaming
     mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
     if prefix:
         seq_filter = {"Seq": filters.pop("Seq")} if "Seq" in filters else None
@@ -498,26 +459,12 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         pipeline.append({"$project": projection})
         pipeline.append({"$skip": offset})
         pipeline.append({"$limit": limit})
-        results = tuple(mongo_collection.aggregate(pipeline))
+        results = mongo_collection.aggregate(pipeline)
     else:
         cursor = mongo_collection.find(filters, projection)
         if len(orderby) > 0:
             cursor = cursor.sort(orderby)
-        results = tuple(cursor.skip(offset).limit(limit))
-
-    hasnext = top is None and len(results) > page_limit
-
-    if isinstance(subject, edm.EntitySet):
-        results = [add_odata_annotations(expand_result(RootEntitySet, expand_details, crop_result(r, prefix), prefix=prefix), RootEntitySet) for r in results[:page_limit]]
-    else:
-        results = [expand_result(RootEntitySet, expand_details, crop_result(r, prefix), prefix=prefix) for r in results[:page_limit]]
-
-    data = {}
-
-    data["@odata.context"] = "{}#{}".format(
-        url_for("odata.$metadata", _external=True).replace("%24", "$"),
-        RootEntitySet.Name
-    )
+        results = cursor.skip(offset).limit(limit)
 
     if count:
         if prefix == "":
@@ -527,32 +474,27 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
             basepipeline.append({"$count": "count"})
             result = tuple(mongo_collection.aggregate(basepipeline))
             count = 0 if len(result) == 0 else result[0]["count"]
-        data["@odata.count"] = count
+        odata_count = count
+    else:
+        odata_count = None
 
-    if hasnext:
-        query_params = request.args.copy()
-        query_params["$skip"] = offset + page_limit
-
-        data["@odata.nextLink"] = "{}?{}".format(
-            url_for("odata.{}".format(RootEntitySet.Name), _external=True),
-            urlencode(query_params)
-        )
-
-    data["value"] = results
-
-    headers = build_response_headers(maxpagesize=page_limit if top is None else None)
+    odata_context = "{}#{}".format(
+        url_for("odata.$metadata", _external=True).replace("%24", "$"),
+        RootEntitySet.Name
+    )
+    prepare_kwargs = {
+        "RootEntitySet": RootEntitySet,
+        "expand_details": expand_details,
+        "prefix": prefix,
+    }
+    data = generate_collection_response(
+        results,
+        offset,
+        page_limit,
+        prepare_entity_set_result if isinstance(subject, edm.EntitySet) else prepare_anonymous_result,
+        odata_context,
+        odata_count=odata_count,
+        prepare_kwargs=prepare_kwargs
+    )
+    headers = build_response_headers(streaming=True, maxpagesize=page_limit if top is None else None)
     return make_response(data, status=200, headers=headers)
-
-
-def make_response(data=None, status=200, etag=None, headers={}):
-    if data is not None:
-        body = json.dumps(data, ensure_ascii=False, sort_keys=True, cls=JSONEncoder).encode("utf-8")
-    else:
-        body = None
-
-    response = Response(body, status, headers=headers)
-    if etag is not None:
-        response.set_etag(etag, weak=True)
-    else:
-        response.add_etag(weak=True)
-    return response.make_conditional(request)

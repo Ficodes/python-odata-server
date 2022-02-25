@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
 import json
 import os
@@ -20,6 +20,10 @@ class ODataGrammar(abnf.Rule):
 
 
 ODataGrammar.from_file(os.path.join(os.path.dirname(__file__), "..", "data", "odata.abnf"))
+
+
+def parse_array_or_object(node):
+    return json.loads(node.value)
 
 
 def parse_primitive_literal(node):

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
 import unittest
 from unittest.mock import ANY, Mock, patch
@@ -263,14 +263,14 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for orderby_expr, expected in test_data:
             with self.subTest(orderby=orderby_expr):
-                mongo.get_collection().find().sort().skip().limit.return_value = ()
+                mongo.get_collection().find().sort().skip().limit.return_value = iter(())
                 mongo.reset_mock()
                 response = self.app.get("/Products?$orderby={}".format(orderby_expr))
                 mongo.get_collection().find().sort.assert_called_once_with(expected)
                 self.assertEqual(response.status_code, 200)
 
     def test_get_entity_collection_api_empty_filter(self):
-        mongo.get_collection().find().skip().limit.return_value = ()
+        mongo.get_collection().find().skip().limit.return_value = iter(())
         mongo.reset_mock()
         response = self.app.get("/Products?$filter=")
         mongo.get_collection().find.assert_called_once_with({"uuid": {"$exists": True}}, ANY)
@@ -284,7 +284,7 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for label, filter_expr in test_data:
             with self.subTest(msg=label):
-                mongo.get_collection().find().skip().limit.return_value = ()
+                mongo.get_collection().find().skip().limit.return_value = iter(())
                 response = self.app.get("/Products?$filter={}".format(filter_expr))
                 self.assertEqual(response.status_code, 200)
 
