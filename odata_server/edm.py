@@ -340,7 +340,7 @@ class Property(EdmItem):
 
     Name = meta.attribute(str, required=True)
     Type = meta.attribute(str, json_default="Edm.String")
-    Nullable = meta.attribute(bool, json_default=False)
+    Nullable = meta.attribute(bool, default=False, json_default=False, xml_default=None)
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)

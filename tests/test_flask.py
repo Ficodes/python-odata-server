@@ -42,7 +42,6 @@ edmx = {
                     {
                         "Name": "Description",
                         "Type": "Edm.String",
-                        "Nullable": False,
                         "Annotations": [
                             {"Term": "Core.IsLanguageDependent"},
                         ],
@@ -50,6 +49,7 @@ edmx = {
                     {
                         "Name": "Rating",
                         "Type": "Edm.Int32",
+                        "Nullable": True,
                     },
                     {
                         "Name": "ReleaseDate",
