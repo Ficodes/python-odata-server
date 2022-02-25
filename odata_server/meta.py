@@ -3,14 +3,23 @@
 from importlib import import_module
 
 
+NODEFAULT = object()
+
+
 class attribute():
 
     def __init__(self, _type, static=None, default=None, json_default=None, xml_default=None, required=False, items=None, min=None, version="4.0"):
         self._type = _type
         self.static = static
         self.default = [] if _type == list and default is None else default
-        self.json_default = json_default if json_default is not None else self.default
-        self.xml_default = xml_default if xml_default is not None else self.default
+        if json_default == NODEFAULT:
+            self.json_default = None
+        else:
+            self.json_default = json_default if json_default is not None else default
+        if xml_default == NODEFAULT:
+            self.xml_default = None
+        else:
+            self.xml_default = xml_default if xml_default is not None else default
         self.required = required
         self.version = version
 

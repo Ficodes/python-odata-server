@@ -359,6 +359,26 @@ class EdmUnitTests(unittest.TestCase):
                 b'<Parameter Name="param" Type="Edm.String" Unicode="false" />',
             )
 
+    def test_property(self):
+        test_data = (
+            (False, False, True),
+            (False, True, True),  # TODO in this case, attr should be False
+            (True, False, True),
+            (True, True, True),
+        )
+        for iscollection, nullable, attr in test_data:
+            with self.subTest(iscollection=iscollection, nullable=nullable):
+                n = edm.Property({
+                    "Name": "Prop",
+                    "Type": "Collection(Edm.String)" if iscollection else "Edm.String",
+                    "Nullable": nullable,
+                })
+
+                if attr:
+                    self.assertEqual(n.xml().get("Nullable"), "true" if nullable else "false")
+                else:
+                    self.assertNotIn("Nullable", n.xml().attrib)
+
     def test_record_minimal(self):
         r = edm.Record({})
         self.assertEqual(r.json(), {})
