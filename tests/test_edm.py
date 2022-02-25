@@ -265,6 +265,26 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(d.Schemas), 1)
         self.assertEqual(type(d.json()), list)
 
+    def test_navigation_property(self):
+        test_data = (
+            (False, False, True),
+            (False, True, False),
+            (True, False, False),
+            (True, True, False),
+        )
+        for iscollection, nullable, attr in test_data:
+            with self.subTest(iscollection=iscollection, nullable=nullable):
+                n = edm.NavigationProperty({
+                    "Name": "Prop",
+                    "Type": "Collection(Edm.String)" if iscollection else "Edm.String",
+                    "Nullable": nullable,
+                })
+
+                if attr:
+                    self.assertEqual(n.xml().get("Nullable"), "false")
+                else:
+                    self.assertNotIn("Nullable", n.xml().attrib)
+
     def test_parameter_minimal(self):
         p = edm.Parameter({
             "Name": "param",

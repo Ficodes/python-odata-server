@@ -75,7 +75,7 @@ class EdmItem(metaclass=EdmItemBase):
             elif attr.type == list and issubclass(attr.items, EdmItem):
                 for e in value:
                     root.append(e.xml())
-            elif attr.default is None or value != attr.default:
+            elif attr.xml_default is None or value != attr.xml_default:
                 if type(value) == bool:
                     root.set(attr_name, "true" if value else "false")
                 else:
@@ -136,7 +136,7 @@ class EdmItem(metaclass=EdmItemBase):
                         if key in subvalue:
                             del subvalue[key]
                         data[key_value] = subvalue
-            elif value is not None and (attr.default is None or value != attr.default):
+            elif value is not None and (attr.json_default is None or value != attr.json_default):
                 data[final_attr_name] = value
 
         return data
@@ -320,12 +320,18 @@ class NavigationProperty(EdmItem):
 
     Name = meta.attribute(str, required=True)
     Type = meta.attribute(str, required=True)
-    Nullable = meta.attribute(bool, default=False)
+    Nullable = meta.attribute(bool, json_default=False, xml_default=True)
     Partner = meta.attribute(str)
     ContainsTarget = meta.attribute(bool)
     OnDelete = meta.element(OnDelete)
     Annotations = meta.element(list, items=Annotation)
     # public referentialConstraints: Array<ReferentialConstraint>
+
+    def __init__(self, definition: dict, parent: Optional[EdmItemBase] = None):
+        super().__init__(definition, parent)
+        self.iscollection = self.Type.startswith("Collection(")
+        if self.iscollection:
+            self.Nullable = None
 
 
 class Property(EdmItem):
@@ -333,8 +339,8 @@ class Property(EdmItem):
     jsonkey = "Name"
 
     Name = meta.attribute(str, required=True)
-    Type = meta.attribute(str, default="Edm.String")
-    Nullable = meta.attribute(bool, default=True)
+    Type = meta.attribute(str, json_default="Edm.String")
+    Nullable = meta.attribute(bool, json_default=False)
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
@@ -439,7 +445,7 @@ class Parameter(EdmItem):
 
     Name = meta.attribute(str, required=True)
     Type = meta.attribute(str, required=True)
-    Nullable = meta.attribute(bool, default=True)
+    Nullable = meta.attribute(bool, json_default=False)
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
@@ -451,7 +457,7 @@ class Parameter(EdmItem):
 class ReturnType(EdmItem):
 
     Type = meta.attribute(str, required=True)
-    Nullable = meta.attribute(bool, default=True)
+    Nullable = meta.attribute(bool, json_default=False)
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
@@ -612,7 +618,6 @@ class Edmx(EdmItem):
                 }
                 virtual_entities = set()
                 for navigation_property in entity_type.NavigationProperties:
-                    navigation_property.iscollection = navigation_property.Type.startswith("Collection(")
                     type_name = navigation_property.Type[11:-1] if navigation_property.iscollection else navigation_property.Type
                     type_name = type_name.rsplit(".", 1)[1]
                     navigation_property.entity_type = schema.entity_types_by_id[type_name]
