@@ -51,8 +51,9 @@ class ODataBluePrint(Blueprint):
                         }
                     )
 
-                    if len(entity_type.computed_properties) > 0 and entity_set.custom_insert_business is None:
-                        raise Exception("EntitySet {} is managing an entity type that contains computed properties. The logic for initializaing those computed properties has to be configured".format(entity_set.Name))
+                    if insert_restrictions.get("Insertable", True) and len(entity_type.computed_properties) > 0 and entity_set.custom_insert_business is None:
+                        logger.error("EntitySet {} is managing an entity type that contains computed properties. The logic for initializaing those computed properties has to be configured".format(entity_set.Name))
+                        insert_restrictions["Insertable"] = "False"
 
                     if insert_restrictions["Insertable"]:
                         collection_methods.append("POST")
