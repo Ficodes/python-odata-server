@@ -98,7 +98,12 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
 
         negation = False
         if len(tree.children) > 1 and tree.children[1].name == "eqExpr":
-            negation = tree.children[1].children[3].value == "false"
+            # Move tree to skip the eqExpr node
+            tree = tree.children[1].children[3]
+            if tree.name == "primitiveLiteral":
+                negation = tree.value != "true"
+            else:  # if tree.name = "commonExpr":
+                negation = tree.children[0].value != "true"
 
         regex_literal = re.escape(parse_primitive_literal(args[1].children[0].children[0]))
         if methodExpr.name == "containsMethodCallExpr":

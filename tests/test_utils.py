@@ -280,6 +280,27 @@ class UtilsTestCase(unittest.TestCase):
                 }
             ),
             (
+                "startswith(ID, '001522abc%5Bs%5B') eq true and B eq null",
+                {
+                    "ID": {"$regex": "^001522abc\\[s\\["},
+                    "B": {"$eq": None},
+                }
+            ),
+            (
+                "startswith(ID, '001522abc%5Bs%5B') eq false and B eq null",
+                {
+                    "ID": {"$regex": "^(?!001522abc\\[s\\[)"},
+                    "B": {"$eq": None},
+                }
+            ),
+            (
+                "startswith(ID, '001522abc%5Bs%5B') eq 5 and B eq null",
+                {
+                    "ID": {"$regex": "^(?!001522abc\\[s\\[)"},
+                    "B": {"$eq": None},
+                }
+            ),
+            (
                 "client_bar_code eq null and client_references eq []",
                 {
                     "client_bar_code": {"$eq": None},
