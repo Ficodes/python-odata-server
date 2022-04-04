@@ -7,10 +7,12 @@ from bson.son import SON
 from flask import abort, request, url_for
 
 from odata_server import edm
-from odata_server.utils.http import build_response_headers, make_response
-from odata_server.utils.json import generate_collection_response
-from odata_server.utils.mongo import get_mongo_prefix
-from odata_server.utils.parse import ODataGrammar, parse_array_or_object, parse_primitive_literal, parse_qs
+from .common import format_key_predicate
+from .flask import add_odata_annotations
+from .http import build_response_headers, make_response
+from .json import generate_collection_response
+from .mongo import get_mongo_prefix
+from .parse import ODataGrammar, parse_array_or_object, parse_primitive_literal, parse_qs
 
 
 EXPR_MAPPING = {
@@ -256,20 +258,6 @@ def process_expand_details(EntitySet, EntityType, expand_properties, projection,
     return expand_details
 
 
-def format_literal(value):
-    if type(value) == str:
-        return "'{}'".format(value)
-    else:
-        return value
-
-
-def format_key_predicate(id_value):
-    if len(id_value) == 1:
-        return format_literal(tuple(id_value.values())[0])
-    else:
-        return ",".join("{}={}".format(key, format_literal(value)) for key, value in id_value.items())
-
-
 def expand_result(EntitySet, expand_details, result, prefix=""):
     main_id = {
         key_prop: result[key_prop]
@@ -312,22 +300,6 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
             e.update(main_id)
 
     return result
-
-
-def extract_id_value(entity_type, data):
-    return {
-        prop: data[prop]
-        for prop in entity_type.key_properties
-    }
-
-
-def add_odata_annotations(data, entity_set):
-    key_predicate = format_key_predicate(extract_id_value(entity_set.entity_type, data))
-    data["@odata.id"] = "{}({})".format(url_for("odata.{}".format(entity_set.Name), _external=True), key_predicate)
-    data["@odata.etag"] = 'W/"{}"'.format(data["uuid"])
-    del data["uuid"]
-
-    return data
 
 
 def build_initial_projection(entity_type, select="", prefix=""):

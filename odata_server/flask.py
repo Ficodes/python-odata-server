@@ -12,7 +12,9 @@ import uuid
 import werkzeug
 
 from odata_server import edm
-from odata_server.utils import add_odata_annotations, build_initial_projection, build_response_headers, expand_result, extract_id_value, format_key_predicate, get_collection, make_response, process_collection_filters, process_expand_fields
+from odata_server.utils import build_initial_projection, build_response_headers, expand_result, format_key_predicate, get_collection, make_response, process_collection_filters, process_expand_fields
+from odata_server.utils.common import extract_id_value
+from odata_server.utils.flask import add_odata_annotations
 from odata_server.utils.mongo import get_mongo_prefix
 from odata_server.utils.parse import ODataGrammar, parse_key_predicate, parse_qs
 
