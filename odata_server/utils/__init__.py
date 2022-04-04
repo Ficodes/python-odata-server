@@ -12,7 +12,10 @@ from .flask import add_odata_annotations
 from .http import build_response_headers, make_response
 from .json import generate_collection_response
 from .mongo import get_mongo_prefix
-from .parse import ODataGrammar, parse_array_or_object, parse_primitive_literal, parse_qs
+from .parse import (
+    ODataGrammar, parse_array_or_object, parse_primitive_literal,
+    parse_orderby, parse_qs
+)
 
 
 EXPR_MAPPING = {
@@ -396,19 +399,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     expand_details = process_expand_fields(RootEntitySet, subject.entity_type, request.args.get("$expand", ""), projection, prefix=prefix)
 
     # Process orderby
-    orderby = []
-    orderby_arg = request.args.get("$orderby", "").strip()
-    if orderby_arg != "":
-        try:
-            tree = ODataGrammar("orderbyExpr").parse_all(orderby_arg)
-        except abnf.parser.ParseError:
-            abort(400)
-
-        orderbyItem = tree.children[0]
-        orderby.append((
-            orderbyItem.children[0].value,
-            1 if len(orderbyItem.children) == 1 or orderbyItem.children[2].value.lower() == "asc" else -1)
-        )
+    orderby = parse_orderby(qs.get("$orderby", ""))
 
     # Get the results
     mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)

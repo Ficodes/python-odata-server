@@ -124,7 +124,7 @@ class ODataBluePrint(Blueprint):
                         "/{}/$count".format(entity_set.Name),
                         view_func=get_collection_count,
                         methods=("GET",),
-                        endpoint="{}.count".format(entity_set.Name),
+                        endpoint="{}$count".format(entity_set.Name),
                         defaults={
                             "edmx": edmx,
                             "mongo": mongo,

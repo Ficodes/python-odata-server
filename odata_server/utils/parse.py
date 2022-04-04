@@ -31,8 +31,10 @@ def parse_primitive_literal(node):
     value = node.value
     if value_type == "string":
         return unquote(value)[1:-1].replace("''", "'")
-    elif value_type in ("booleanValue", "decimalValue", "int16Value", "int32Value", "int64Value", "nullValue"):
+    elif value_type in ("booleanValue", "sbyteValue", "byteValue", "int16Value", "int32Value", "int64Value", "nullValue"):
         return json.loads(value)
+    elif value_type in ("decimalValue", "doubleValue", "singleValue"):
+        return float(value)
     elif value_type in ("dateTimeOffsetValueInUrl",):
         return arrow.get(unquote(value)).datetime
     elif value_type in ("dateValue",):
@@ -103,3 +105,21 @@ def parse_qs(qs):
         asdict[name] = value
 
     return asdict
+
+
+def parse_orderby(orderby_value):
+    if orderby_value != "":
+        try:
+            tree = ODataGrammar("orderbyExpr").parse_all(orderby_value)
+        except abnf.parser.ParseError:
+            abort(400)
+
+        return [
+            (
+                entry.children[0].value,
+                1 if len(entry.children) == 1 or entry.children[2].value.lower() == "asc" else -1
+            )
+            for entry in tree.children if entry.name == "orderbyItem"
+        ]
+
+    return []
