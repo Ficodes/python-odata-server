@@ -2,7 +2,7 @@
 
 import unittest
 
-from odata_server.utils.common import format_literal, format_key_predicate
+from odata_server.utils.common import extract_id_value, format_literal, format_key_predicate
 
 
 class CommonUtilsTestCase(unittest.TestCase):
@@ -28,3 +28,34 @@ class CommonUtilsTestCase(unittest.TestCase):
         for value, expected_value in test_data:
             with self.subTest(value=value):
                 self.assertEqual(format_key_predicate(value), expected_value)
+
+    def test_extract_id_value(self):
+        entity_type = unittest.mock.Mock(
+            key_properties=set(("a", "b"))
+        )
+        self.assertEqual(
+            extract_id_value(
+                entity_type,
+                {
+                    "a": 1,
+                    "b": 2,
+                    "c": 3,
+                },
+            ),
+            {
+                "a": 1,
+                "b": 2,
+            },
+        )
+
+    def test_extract_id_value_key_error(self):
+        entity_type = unittest.mock.Mock(
+            key_properties=set(("a", "b"))
+        )
+        with self.assertRaises(KeyError):
+            extract_id_value(
+                entity_type,
+                {
+                    "a": 1,
+                },
+            )
