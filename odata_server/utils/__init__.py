@@ -379,15 +379,15 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
             "uuid": {"$exists": True}
         }
 
-    top = request.args.get("$top")
+    top = qs.get("$top")
     page_limit = int(top) if top is not None else prefers["maxpagesize"]
     limit = page_limit if top is not None else page_limit + 1
-    offset = int(request.args.get("$skip", "0"))
+    offset = int(qs.get("$skip", "0"))
 
     # Check if we need to apply a prefix to mongodb fields
     prefix = get_mongo_prefix(RootEntitySet, subject)
 
-    select = request.args.get("$select", "")
+    select = qs.get("$select", "")
     projection = build_initial_projection(subject.entity_type, select, prefix=prefix)
 
     # Process filters
@@ -396,7 +396,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     filters = process_collection_filters(filter_arg, search_arg, filters, subject.entity_type, prefix=prefix)
 
     # Process expand fields
-    expand_details = process_expand_fields(RootEntitySet, subject.entity_type, request.args.get("$expand", ""), projection, prefix=prefix)
+    expand_details = process_expand_fields(RootEntitySet, subject.entity_type, qs.get("$expand", ""), projection, prefix=prefix)
 
     # Process orderby
     orderby = parse_orderby(qs.get("$orderby", ""))
@@ -421,6 +421,8 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         if seq_filter is not None:
             pipeline.append({"$match": seq_filter})
 
+        # Save a version of the pipeline without the sort, project, skip and
+        # limit stages
         basepipeline = pipeline.copy()
         if len(orderby) > 0:
             pipeline.append({"$sort": SON(orderby)})
@@ -438,7 +440,6 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         if prefix == "":
             count = mongo_collection.count_documents(filters)
         else:
-            # Remove skip and limit stages from the pipeline
             basepipeline.append({"$count": "count"})
             result = tuple(mongo_collection.aggregate(basepipeline))
             count = 0 if len(result) == 0 else result[0]["count"]

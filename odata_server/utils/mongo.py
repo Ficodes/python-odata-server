@@ -10,7 +10,6 @@ def get_mongo_prefix(RootEntitySet, subject, seq=None):
             prefix = "{}.{}".format(RootEntitySet.prefix, prefix)
         elif RootEntitySet.prefix != "" and prefix == "":
             prefix = RootEntitySet.prefix
-
     else:
         prefix = RootEntitySet.prefix
 

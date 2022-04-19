@@ -3,11 +3,17 @@
 import datetime
 import unittest
 
+from flask import Flask
+
 from odata_server import edm
-from odata_server.utils import process_collection_filters, process_expand_fields
+from odata_server.utils import get_collection, process_collection_filters, process_expand_fields
 
 
 class UtilsTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("tests")
 
     def test_process_expand_fields(self):
         test_data = (
@@ -400,6 +406,274 @@ class UtilsTestCase(unittest.TestCase):
                 filters = {}
                 process_collection_filters(expr, "", filters, {})
                 self.assertEqual(filters, expected)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().find().skip().limit.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = ""
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.parse_orderby", new=unittest.mock.Mock(return_value=(("ID", 1),)))
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_orderby(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().find().sort().skip().limit.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = ""
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_count(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().find().skip().limit.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        mongo.get_collection().count_documents.return_value = 1
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = ""
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers, count=True)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_mongo_prefix_entity(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().aggregate.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = "products"
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.parse_orderby", new=unittest.mock.Mock(return_value=(("ID", 1),)))
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_mongo_prefix_entity_orderby(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().aggregate.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = "products"
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.process_collection_filters", new=unittest.mock.Mock(return_value={"Seq": {"$gt": 1}}))
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_mongo_prefix_entity_seq_filter(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().aggregate.return_value = iter(({
+            "ID": 1,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = "products"
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_mongo_prefix_entity_count(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().aggregate.side_effect = (
+            iter(({
+                "ID": 1,
+                "uuid": "abc",
+            },)),
+            iter(({
+                "count": 1
+            },)),
+        )
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = "products"
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers, count=True)
+
+    @unittest.mock.patch("odata_server.utils.parse_qs", return_value={})
+    @unittest.mock.patch("odata_server.utils.url_for", new=unittest.mock.Mock(return_value="/$metadata"))
+    @unittest.mock.patch("odata_server.utils.flask.url_for", new=unittest.mock.Mock(return_value="/Products"))
+    def test_get_collection_mongo_prefix_collection(self, parse_qs):
+        mongo = unittest.mock.Mock()
+        mongo.get_collection().aggregate.return_value = iter(({
+            "ID": 1,
+            "Seq": 0,
+            "uuid": "abc",
+        },))
+        RootEntitySet = edm.EntitySet({
+            "Name": "Products",
+            "EntityType": "Product",
+        })
+        RootEntitySet.prefix = "products"
+        RootEntitySet.mongo_collection = "product"
+        RootEntitySet.entity_type = edm.EntityType({
+            "Name": "Product",
+            "Key": [
+                {"Name": "ID"},
+                {"Name": "Seq"},
+            ],
+            "Properties": [
+                {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+                {"Name": "Seq", "Type": "Edm.Int16", "Nullable": False},
+            ],
+        })
+        edm.process_entity_type(RootEntitySet.entity_type)
+        subject = RootEntitySet
+        prefers = {
+            "maxpagesize": 20,
+        }
+        with self.app.test_request_context():
+            get_collection(mongo, RootEntitySet, subject, prefers)
 
 
 if __name__ == "__main__":

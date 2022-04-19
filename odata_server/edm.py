@@ -548,6 +548,67 @@ def set_annotation_default_value(item, annotation, value):
     item.Annotations.append(new_annotation)
 
 
+def process_annotations(element):
+    element.annotations = {
+        a.Term: a for a in element.Annotations
+    }
+
+
+def process_entity_type(entity_type, schema=None):
+    # TODO inheritance
+    process_annotations(entity_type)
+
+    if entity_type.Key is not None:
+        entity_type.key_properties = tuple(p.Name for p in entity_type.Key.PropertyRefs)
+    else:
+        entity_type.key_properties = None
+
+    if schema is not None:
+        entity_type.names = set(("{}.{}".format(schema.Namespace, entity_type.Name),))
+        if schema.Alias is not None:
+            entity_type.names.add("{}.{}".format(schema.Alias, entity_type.Name))
+    else:
+        entity_type.names = entity_type.Name
+
+    # Structural properties
+    entity_type.properties = {
+        t.Name: t for t in entity_type.Properties
+    }
+    entity_type.property_list = tuple(entity_type.properties.values())
+    entity_type.computed_properties = set()
+    entity_type.nullable_properties = set()
+    for prop in entity_type.property_list:
+        process_annotations(prop)
+        computed = pop_annotation(prop, "Org.OData.Core.V1.Computed", False)
+        prop.iscollection = prop.Type.startswith("Collection(")
+        if computed:
+            entity_type.computed_properties.add(prop.Name)
+        if not prop.iscollection and prop.Nullable:
+            entity_type.nullable_properties.add(prop.Name)
+
+    # Navigation properties
+    entity_type.navproperties = {
+        t.Name: t for t in entity_type.NavigationProperties
+    }
+    virtual_entities = set()
+    for navigation_property in entity_type.NavigationProperties:
+        type_name = navigation_property.Type[11:-1] if navigation_property.iscollection else navigation_property.Type
+        type_name = type_name.rsplit(".", 1)[1]
+        navigation_property.entity_type = schema.entity_types_by_id[type_name]
+        process_annotations(navigation_property)
+        navigation_property.isembedded = pop_annotation(navigation_property, "PythonODataServer.Embedded", False)
+        if navigation_property.isembedded:
+            virtual_entities.add(navigation_property.Name)
+    entity_type.virtual_entities = virtual_entities
+
+    if entity_type.key_properties is not None:
+        for key_prop in entity_type.key_properties:
+            if key_prop not in entity_type.properties:
+                raise ValueError("Entity Type {} is missing key property: {}".format(entity_type.Name, key_prop))
+            elif entity_type.properties[key_prop].Nullable:
+                raise ValueError("Entity Type {} has a nullable key property: {}".format(entity_type.Name, key_prop))
+
+
 class Edmx(EdmItem):
 
     prefix = "edmx"
@@ -588,49 +649,7 @@ class Edmx(EdmItem):
             }
 
             for entity_type in schema.EntityTypes:
-                entity_type.key_properties = tuple(p.Name for p in entity_type.Key.PropertyRefs)
-
-                entity_type.annotations = {
-                    a.Term: a for a in entity_type.Annotations
-                }
-
-                # Structural properties
-                entity_type.properties = {
-                    t.Name: t for t in entity_type.Properties
-                }
-                entity_type.property_list = tuple(entity_type.properties.values())
-                entity_type.computed_properties = set()
-                entity_type.nullable_properties = set()
-                for prop in entity_type.property_list:
-                    prop.annotations = {
-                        a.Term: a for a in prop.Annotations
-                    }
-                    computed = pop_annotation(prop, "Org.OData.Core.V1.Computed", False)
-                    prop.iscollection = prop.Type.startswith("Collection(")
-                    if computed:
-                        entity_type.computed_properties.add(prop.Name)
-                    if not prop.iscollection and prop.Nullable:
-                        entity_type.nullable_properties.add(prop.Name)
-
-                # Navigation properties
-                entity_type.navproperties = {
-                    t.Name: t for t in entity_type.NavigationProperties
-                }
-                virtual_entities = set()
-                for navigation_property in entity_type.NavigationProperties:
-                    type_name = navigation_property.Type[11:-1] if navigation_property.iscollection else navigation_property.Type
-                    type_name = type_name.rsplit(".", 1)[1]
-                    navigation_property.entity_type = schema.entity_types_by_id[type_name]
-                    navigation_property.annotations = {
-                        a.Term: a for a in navigation_property.Annotations
-                    }
-                    navigation_property.isembedded = pop_annotation(navigation_property, "PythonODataServer.Embedded", False)
-                    if navigation_property.isembedded:
-                        virtual_entities.add(navigation_property.Name)
-                entity_type.virtual_entities = virtual_entities
-                entity_type.names = set(("{}.{}".format(schema.Namespace, entity_type.Name),))
-                if schema.Alias is not None:
-                    entity_type.names.add("{}.{}".format(schema.Alias, entity_type.Name))
+                process_entity_type(entity_type, schema)
 
             for container in schema.EntityContainers:
                 container.Annotations.append(Annotation({"Term": "Org.OData.Core.V1.ODataVersions", "String": "4.0"}))
@@ -641,9 +660,7 @@ class Edmx(EdmItem):
                 }
 
                 for entity_set in container.EntitySets:
-                    entity_set.annotations = {
-                        a.Term: a for a in entity_set.Annotations
-                    }
+                    process_annotations(entity_set)
                     entity_set.bindings = {
                         navbinding.Path: container.entity_sets_by_id[navbinding.Target]
                         for navbinding in entity_set.NavigationPropertyBindings
