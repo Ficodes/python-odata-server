@@ -1,12 +1,16 @@
 # Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
+from copy import deepcopy
 import datetime
 import unittest
 
 from flask import Flask
 
 from odata_server import edm
-from odata_server.utils import get_collection, process_collection_filters, process_expand_fields
+from odata_server.utils import (
+    crop_result, get_collection, prepare_anonymous_result,
+    prepare_entity_set_result, process_collection_filters, process_expand_fields
+)
 
 
 class UtilsTestCase(unittest.TestCase):
@@ -674,6 +678,69 @@ class UtilsTestCase(unittest.TestCase):
         }
         with self.app.test_request_context():
             get_collection(mongo, RootEntitySet, subject, prefers)
+
+    @unittest.mock.patch("odata_server.utils.crop_result", new=unittest.mock.Mock())
+    @unittest.mock.patch("odata_server.utils.expand_result", new=unittest.mock.Mock())
+    @unittest.mock.patch("odata_server.utils.add_odata_annotations", new=unittest.mock.Mock())
+    def test_prepare_entity_set_result(self):
+        result = {}
+        RootEntitySet = unittest.mock.Mock()
+        expand_details = {}
+        prefix = ""
+        prepare_entity_set_result(result, RootEntitySet, expand_details, prefix)
+
+    @unittest.mock.patch("odata_server.utils.crop_result", new=unittest.mock.Mock())
+    @unittest.mock.patch("odata_server.utils.expand_result", new=unittest.mock.Mock())
+    def test_prepare_anonymous_result(self):
+        result = {}
+        RootEntitySet = unittest.mock.Mock()
+        expand_details = {}
+        prefix = ""
+        prepare_anonymous_result(result, RootEntitySet, expand_details, prefix)
+
+    def test_crop_result(self):
+        data = {
+            "ID": 1,
+            "products": {
+                "name": "product1",
+                "categories": {
+                    "name": "cat1",
+                },
+            },
+            "Seq": 0,
+        }
+        test_data = (
+            ("", data),
+            (
+                "products",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                    "name": "product1",
+                    "categories": {
+                        "name": "cat1",
+                    },
+                },
+            ),
+            (
+                "products.tags",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                },
+            ),
+            (
+                "products.categories",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                    "name": "cat1",
+                },
+            ),
+        )
+        for prefix, expected_result in test_data:
+            with self.subTest(prefix=prefix):
+                self.assertEqual(crop_result(deepcopy(data), prefix), expected_result)
 
 
 if __name__ == "__main__":
