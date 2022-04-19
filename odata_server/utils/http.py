@@ -47,6 +47,8 @@ def make_response(data=None, status=200, etag=None, headers={}):
     response = Response(body, status, headers=headers)
     if etag is not None:
         response.set_etag(etag, weak=True)
+    elif isinstance(data, types.GeneratorType):
+        return response
     else:
         response.add_etag(weak=True)
     return response.make_conditional(request)
