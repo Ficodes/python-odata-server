@@ -287,6 +287,8 @@ class BluePrintTestCase(unittest.TestCase):
                 mongo.get_collection().find().skip().limit.return_value = iter(())
                 response = self.app.get("/Products?$filter={}".format(filter_expr))
                 self.assertEqual(response.status_code, 200)
+                # force processing of the body generator
+                response.json
 
     def test_get_entity_collection_api_invalid_filter(self):
         test_data = (

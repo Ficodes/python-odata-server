@@ -13,9 +13,9 @@ import werkzeug
 
 from odata_server import edm
 from odata_server.utils import build_response_headers, expand_result, format_key_predicate, get_collection, make_response, process_collection_filters, process_expand_fields
-from odata_server.utils.common import build_initial_projection, extract_id_value
+from odata_server.utils.common import extract_id_value
 from odata_server.utils.flask import add_odata_annotations
-from odata_server.utils.mongo import get_mongo_prefix
+from odata_server.utils.mongo import build_initial_projection, get_mongo_prefix
 from odata_server.utils.parse import ODataGrammar, parse_key_predicate, parse_qs
 
 
@@ -225,6 +225,7 @@ def parse_prefer_header(value, version="4.0"):
 
 
 def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
+    anonymous = not isinstance(subject, edm.EntitySet)
     qs = parse_qs(request.query_string)
     EntityType = subject.entity_type
 
@@ -234,7 +235,7 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
     prefix = get_mongo_prefix(RootEntitySet, subject)
 
     select_arg = qs.get("$select", "")
-    projection = build_initial_projection(EntityType, select_arg, prefix=prefix)
+    projection, fields_to_remove = build_initial_projection(EntityType, select_arg, prefix=prefix, anonymous=anonymous)
 
     # Process expand fields
     expand_arg = qs.get("$expand", "")
@@ -280,11 +281,15 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
         del data[prefix]
 
     etag = str(data["uuid"])
-    if isinstance(subject, edm.EntitySet):
-        data = add_odata_annotations(expand_result(RootEntitySet, expand_details, data), RootEntitySet)
-    else:
+
+    if anonymous:
         del data["uuid"]
         data = expand_result(RootEntitySet, expand_details, data)
+    else:
+        data = add_odata_annotations(expand_result(RootEntitySet, expand_details, data), RootEntitySet)
+
+    for field in fields_to_remove:
+        del data[field]
 
     anchor = "{}/$entity".format("{}/{}".format(RootEntitySet.Name, prefix) if prefix != "" else RootEntitySet.Name)
     data["@odata.context"] = "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor)

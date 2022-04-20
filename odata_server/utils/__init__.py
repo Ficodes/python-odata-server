@@ -7,11 +7,11 @@ from bson.son import SON
 from flask import abort, request, url_for
 
 from odata_server import edm
-from .common import build_initial_projection, crop_result, format_key_predicate
+from .common import crop_result, format_key_predicate
 from .flask import add_odata_annotations
 from .http import build_response_headers, make_response
 from .json import generate_collection_response
-from .mongo import get_mongo_prefix
+from .mongo import build_initial_projection, get_mongo_prefix
 from .parse import (
     ODataGrammar, parse_array_or_object, parse_primitive_literal,
     parse_orderby, parse_qs
@@ -316,10 +316,14 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
     return result
 
 
-def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix):
+def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix, fields_to_remove):
     croped_result = crop_result(result, prefix)
     expanded_result = expand_result(RootEntitySet, expand_details, croped_result, prefix=prefix)
-    return add_odata_annotations(expanded_result, RootEntitySet)
+    annotated_result = add_odata_annotations(expanded_result, RootEntitySet)
+    for field in fields_to_remove:
+        del annotated_result[field]
+
+    return annotated_result
 
 
 def prepare_anonymous_result(result, RootEntitySet, expand_details, prefix):
@@ -329,6 +333,7 @@ def prepare_anonymous_result(result, RootEntitySet, expand_details, prefix):
 
 def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=False):
     qs = parse_qs(request.query_string)
+    anonymous = not isinstance(subject, edm.EntitySet)
 
     # Parse basic options
     if filters is None:
@@ -346,7 +351,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     prefix = get_mongo_prefix(RootEntitySet, subject)
 
     select = qs.get("$select", "")
-    projection = build_initial_projection(subject.entity_type, select, prefix=prefix)
+    projection, fields_to_remove = build_initial_projection(subject.entity_type, select, prefix=prefix, anonymous=anonymous)
 
     # Process filters
     filter_arg = qs.get("$filter", "")
@@ -413,12 +418,13 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         "RootEntitySet": RootEntitySet,
         "expand_details": expand_details,
         "prefix": prefix,
+        "fields_to_remove": fields_to_remove,
     }
     data = generate_collection_response(
         results,
         offset,
         page_limit,
-        prepare_entity_set_result if isinstance(subject, edm.EntitySet) else prepare_anonymous_result,
+        prepare_anonymous_result if anonymous else prepare_entity_set_result,
         odata_context,
         odata_count=odata_count,
         prepare_kwargs=prepare_kwargs

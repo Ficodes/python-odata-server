@@ -3,80 +3,12 @@
 from copy import deepcopy
 import unittest
 
-from odata_server import edm
 from odata_server.utils.common import (
-    build_initial_projection, crop_result, extract_id_value, format_literal,
-    format_key_predicate
+    crop_result, extract_id_value, format_literal, format_key_predicate
 )
 
 
-ENTITY_TYPE_1 = {
-    "Name": "Product",
-    "Key": [
-        {"Name": "ID"},
-    ],
-    "Properties": [
-        {"Name": "ID", "Type": "Edm.String", "Nullable": False},
-        {"Name": "description", "Type": "Edm.String", "Nullable": False},
-    ],
-}
-
-
 class CommonUtilsTestCase(unittest.TestCase):
-
-    def test_build_initial_projection(self):
-        test_data = (
-            (
-                ENTITY_TYPE_1,
-                "",
-                "",
-                {
-                    "_id": 0,
-                    "uuid": 1,
-                    "ID": 1,
-                    "description": 1,
-                },
-            ),
-            (
-                ENTITY_TYPE_1,
-                "*",
-                "",
-                {
-                    "_id": 0,
-                    "uuid": 1,
-                    "ID": 1,
-                    "description": 1,
-                },
-            ),
-            (
-                ENTITY_TYPE_1,
-                "description",
-                "",
-                {
-                    "_id": 0,
-                    "uuid": 1,
-                    "description": 1,
-                },
-            ),
-            (
-                ENTITY_TYPE_1,
-                "description",
-                "products",
-                {
-                    "_id": 0,
-                    "uuid": 1,
-                    "products.description": 1,
-                },
-            ),
-        )
-        for entity_type, select, prefix, expected_result in test_data:
-            with self.subTest():
-                entity_type = edm.EntityType(entity_type)
-                edm.process_entity_type(entity_type)
-
-                projection = build_initial_projection(entity_type, select=select, prefix=prefix)
-
-                self.assertEqual(projection, expected_result)
 
     def test_crop_result(self):
         data = {

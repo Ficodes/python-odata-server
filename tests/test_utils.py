@@ -694,7 +694,8 @@ class UtilsTestCase(unittest.TestCase):
         RootEntitySet = unittest.mock.Mock()
         expand_details = {}
         prefix = ""
-        prepare_entity_set_result(result, RootEntitySet, expand_details, prefix)
+        fields_to_remove = []
+        prepare_entity_set_result(result, RootEntitySet, expand_details, prefix, fields_to_remove)
 
     @unittest.mock.patch("odata_server.utils.crop_result", new=unittest.mock.Mock())
     @unittest.mock.patch("odata_server.utils.expand_result", new=unittest.mock.Mock())
