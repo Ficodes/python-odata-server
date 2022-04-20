@@ -120,7 +120,7 @@ class MongoUtilsTestCase(unittest.TestCase):
 
                 self.assertEqual(projection, expected_result)
 
-    def test_mongo_prefix(self):
+    def test_get_mongo_prefix(self):
         List = edm.EntityType({
             "Name": "List",
         })
