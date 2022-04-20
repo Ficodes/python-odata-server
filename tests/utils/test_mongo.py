@@ -14,6 +14,7 @@ ENTITY_TYPE_1 = {
     "Properties": [
         {"Name": "ID", "Type": "Edm.String", "Nullable": False},
         {"Name": "description", "Type": "Edm.String", "Nullable": False},
+        {"Name": "price", "Type": "Edm.Int16", "Nullable": True},
     ],
 }
 
@@ -33,6 +34,23 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "uuid": 1,
                         "ID": 1,
                         "description": 1,
+                        "price": 1,
+                    },
+                    [],
+                )
+            ),
+            (
+                ENTITY_TYPE_1,
+                "",
+                "products",
+                True,
+                (
+                    {
+                        "_id": 0,
+                        "uuid": 1,
+                        "ID": 1,
+                        "products.description": 1,
+                        "products.price": 1,
                     },
                     [],
                 )
@@ -48,6 +66,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "uuid": 1,
                         "ID": 1,
                         "description": 1,
+                        "price": 1,
                     },
                     [],
                 )
@@ -91,6 +110,36 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "_id": 0,
                         "uuid": 1,
                         "products.description": 1,
+                    },
+                    [],
+                )
+            ),
+            (
+                ENTITY_TYPE_1,
+                "description%2C%20price",
+                "products",
+                True,
+                (
+                    {
+                        "_id": 0,
+                        "uuid": 1,
+                        "products.description": 1,
+                        "products.price": 1,
+                    },
+                    [],
+                )
+            ),
+            (
+                ENTITY_TYPE_1,
+                "description, price",
+                "products",
+                True,
+                (
+                    {
+                        "_id": 0,
+                        "uuid": 1,
+                        "products.description": 1,
+                        "products.price": 1,
                     },
                     [],
                 )

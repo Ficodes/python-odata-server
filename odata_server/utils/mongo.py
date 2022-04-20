@@ -1,6 +1,12 @@
 # Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
+import re
+from urllib.parse import unquote
+
 from odata_server import edm
+
+
+COMMA_RE = re.compile(r"\s*,\s*")
 
 
 def build_initial_projection(entity_type, select="", prefix="", anonymous=True):
@@ -13,13 +19,16 @@ def build_initial_projection(entity_type, select="", prefix="", anonymous=True):
     if prefix != "":
         prefix += "."
 
+    select = unquote(select)
     if select == "*":
         select = ""
 
     if select == "":
         select = [p.Name for p in entity_type.property_list]
     else:
-        select = select.split(",")
+        # TODO use abnf grammar adding support for using whitespace around
+        # comma characters
+        select = COMMA_RE.split(select)
 
     for p in select:
         if p in entity_type.key_properties:
