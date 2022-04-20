@@ -3,7 +3,7 @@
 import unittest
 
 from odata_server import edm
-from odata_server.utils.mongo import build_initial_projection
+from odata_server.utils.mongo import build_initial_projection, get_mongo_prefix
 
 
 ENTITY_TYPE_1 = {
@@ -119,3 +119,42 @@ class MongoUtilsTestCase(unittest.TestCase):
                 projection = build_initial_projection(entity_type, select=select, prefix=prefix, anonymous=anonymous)
 
                 self.assertEqual(projection, expected_result)
+
+    def test_mongo_prefix(self):
+        List = edm.EntityType({
+            "Name": "List",
+        })
+        Product = edm.EntityType({
+            "Name": "Product",
+        })
+        NavigationProperty = edm.NavigationProperty({
+            "Name": "products",
+            "Type": "Product",
+        })
+        NavigationProperty.entity_type = Product
+        RootEntitySet = edm.EntitySet({
+            "Name": "List",
+            "EntityType": "List",
+        })
+        RootEntitySet.entity_type = List
+
+        test_data = (
+            ("", None, False, None, ""),
+            ("", NavigationProperty, False, None, ""),
+            ("", NavigationProperty, True, None, "products"),
+            ("products", None, False, None, "products"),
+            ("products", None, False, 0, "products.0"),
+            ("lists", NavigationProperty, False, None, "lists"),
+            ("lists", NavigationProperty, True, None, "lists.products"),
+            ("lists", NavigationProperty, True, 0, "lists.products.0"),
+        )
+        for prefix, subject, isembedded, seq, expected_result in test_data:
+            with self.subTest(prefix=prefix, seq=seq):
+                RootEntitySet.prefix = prefix
+                NavigationProperty.isembedded = isembedded
+                if subject is None:
+                    subject = RootEntitySet
+
+                result = get_mongo_prefix(RootEntitySet, subject, seq)
+
+                self.assertEqual(result, expected_result)
