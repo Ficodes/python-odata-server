@@ -1,11 +1,56 @@
 # Copyright (c) 2022 Future Internet Consulting and Development Solutions S.L.
 
+from copy import deepcopy
 import unittest
 
-from odata_server.utils.common import extract_id_value, format_literal, format_key_predicate
+from odata_server.utils.common import crop_result, extract_id_value, format_literal, format_key_predicate
 
 
 class CommonUtilsTestCase(unittest.TestCase):
+
+    def test_crop_result(self):
+        data = {
+            "ID": 1,
+            "products": {
+                "name": "product1",
+                "categories": {
+                    "name": "cat1",
+                },
+            },
+            "Seq": 0,
+        }
+        test_data = (
+            ("", data),
+            (
+                "products",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                    "name": "product1",
+                    "categories": {
+                        "name": "cat1",
+                    },
+                },
+            ),
+            (
+                "products.tags",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                },
+            ),
+            (
+                "products.categories",
+                {
+                    "ID": 1,
+                    "Seq": 0,
+                    "name": "cat1",
+                },
+            ),
+        )
+        for prefix, expected_result in test_data:
+            with self.subTest(prefix=prefix):
+                self.assertEqual(crop_result(deepcopy(data), prefix), expected_result)
 
     def test_format_literal(self):
         test_data = (

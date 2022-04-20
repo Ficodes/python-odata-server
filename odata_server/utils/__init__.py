@@ -7,7 +7,7 @@ from bson.son import SON
 from flask import abort, request, url_for
 
 from odata_server import edm
-from .common import format_key_predicate
+from .common import crop_result, format_key_predicate
 from .flask import add_odata_annotations
 from .http import build_response_headers, make_response
 from .json import generate_collection_response
@@ -329,33 +329,6 @@ def build_initial_projection(entity_type, select="", prefix=""):
             projection["{}{}".format(prefix, p)] = 1
 
     return projection
-
-
-def crop_result(result, prefix):
-    if prefix == "":
-        return result
-
-    if "." not in prefix:
-        paths = [prefix]
-    else:
-        paths = prefix.split(".")
-
-    root = paths.pop(0)
-    if root in result:
-        value = result[root]
-        for path in paths:
-            if type(value) == list and int(path) in value:
-                value = value[int(path)]
-            elif path in value:
-                value = value[path]
-            else:
-                value = {}
-                break
-
-        result.update(value)
-        del result[root]
-
-    return result
 
 
 def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix):
