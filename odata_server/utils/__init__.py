@@ -94,7 +94,7 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
         lastNode = expr.children[-1]
     elif expresion_name == "methodCallExpr" and tree.children[0].children[0].name == "boolMethodCallExpr":
         methodExpr = tree.children[0].children[0].children[0]
-        args = [node for node in methodExpr.children[2:-1] if node.name == "commonExpr"]
+        args = [node.children[0] for node in methodExpr.children[2:-1] if node.name == "commonExpr"]
         prop_name = args[0].value
         if prefix != "" and prop_name not in entity_type.key_properties:
             field = "{}.{}".format(prefix, prop_name)
@@ -110,18 +110,29 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             else:  # if tree.name = "commonExpr":
                 negation = tree.children[0].value != "true"
 
-        regex_literal = re.escape(parse_primitive_literal(args[1].children[0].children[0]))
-        if methodExpr.name == "containsMethodCallExpr":
+        if methodExpr.name in ("containsMethodCallExpr", "startsWithMethodCallExpr", "endsWithMethodCallExpr"):
+            regex_literal = re.escape(parse_primitive_literal(args[1].children[0]))
+            if methodExpr.name == "containsMethodCallExpr":
+                filters[-1][field] = {
+                    "$regex": "(?!{})".format(regex_literal) if negation else regex_literal
+                }
+            elif methodExpr.name == "startsWithMethodCallExpr":
+                filters[-1][field] = {
+                    "$regex": ("^(?!{})" if negation else "^{}").format(regex_literal)
+                }
+            elif methodExpr.name == "endsWithMethodCallExpr":
+                filters[-1][field] = {
+                    "$regex": ("(?<!{})$" if negation else "{}$").format(regex_literal)
+                }
+        elif methodExpr.name == "hasSubsetMethodCallExpr":
+            # args[1] is always a commonExpr node
+            second_argument = args[1]
+            if second_argument.name != "arrayOrObject" or second_argument.children[0].name != "array":
+                abort(400, "hasubset: Second argument must be a collection")
+
+            subset = parse_array_or_object(second_argument)
             filters[-1][field] = {
-                "$regex": "(?!{})".format(regex_literal) if negation else regex_literal
-            }
-        elif methodExpr.name == "startsWithMethodCallExpr":
-            filters[-1][field] = {
-                "$regex": ("^(?!{})" if negation else "^{}").format(regex_literal)
-            }
-        elif methodExpr.name == "endsWithMethodCallExpr":
-            filters[-1][field] = {
-                "$regex": ("(?<!{})$" if negation else "{}$").format(regex_literal)
+                "$all": subset,
             }
         else:
             abort(501)

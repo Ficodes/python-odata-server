@@ -261,6 +261,14 @@ class UtilsTestCase(unittest.TestCase):
                 {"ID": {"$eq": "[]"}}
             ),
             (
+                "hassubset(colors, ['green', 'purple'])",
+                {"colors": {"$all": ["green", "purple"]}}
+            ),
+            (
+                "hassubset(colors, ['green', 5, [1], {\"a\": 'b'}])",
+                {"colors": {"$all": ["green", 5, [1], {"a": "b"}]}}
+            ),
+            (
                 "contains(ID, '001522abc%5Bs%5B')",
                 {"ID": {"$regex": "001522abc\\[s\\["}}
             ),

@@ -1,5 +1,6 @@
 # Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
+import ast
 import json
 import os
 import re
@@ -23,7 +24,8 @@ ODataGrammar.from_file(os.path.join(os.path.dirname(__file__), "..", "data", "od
 
 
 def parse_array_or_object(node):
-    return json.loads(node.value)
+    # TODO this is not fully compatibly with oData
+    return ast.literal_eval(node.value)
 
 
 def parse_primitive_literal(node):
@@ -31,7 +33,9 @@ def parse_primitive_literal(node):
     value = node.value
     if value_type == "string":
         return unquote(value)[1:-1].replace("''", "'")
-    elif value_type in ("booleanValue", "sbyteValue", "byteValue", "int16Value", "int32Value", "int64Value", "nullValue"):
+    elif value_type == "nullValue":
+        return None
+    elif value_type in ("booleanValue", "sbyteValue", "byteValue", "int16Value", "int32Value", "int64Value"):
         return json.loads(value)
     elif value_type in ("decimalValue", "doubleValue", "singleValue"):
         return float(value)
