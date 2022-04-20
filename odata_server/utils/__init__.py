@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
+# Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
 import re
 
@@ -7,7 +7,7 @@ from bson.son import SON
 from flask import abort, request, url_for
 
 from odata_server import edm
-from .common import crop_result, format_key_predicate
+from .common import build_initial_projection, crop_result, format_key_predicate
 from .flask import add_odata_annotations
 from .http import build_response_headers, make_response
 from .json import generate_collection_response
@@ -303,32 +303,6 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
             e.update(main_id)
 
     return result
-
-
-def build_initial_projection(entity_type, select="", prefix=""):
-    projection = {
-        "_id": 0,
-        "uuid": 1,
-    }
-
-    if prefix != "":
-        prefix += "."
-
-    if select == "*":
-        select = ""
-
-    if select == "":
-        select = [p.Name for p in entity_type.property_list]
-    else:
-        select = select.split(",")
-
-    for p in select:
-        if p in entity_type.key_properties:
-            projection[p] = 1
-        else:
-            projection["{}{}".format(prefix, p)] = 1
-
-    return projection
 
 
 def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix):
