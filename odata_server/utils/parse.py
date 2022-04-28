@@ -40,7 +40,7 @@ def parse_primitive_literal(node):
     elif value_type in ("decimalValue", "doubleValue", "singleValue"):
         return float(value)
     elif value_type in ("dateTimeOffsetValueInUrl",):
-        return arrow.get(unquote(value)).datetime
+        return arrow.get(unquote(value)).to("UTC").datetime
     elif value_type in ("dateValue",):
         return arrow.get(value).format("YYYY-MM-DD")
     else:

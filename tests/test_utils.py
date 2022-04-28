@@ -214,11 +214,11 @@ class UtilsTestCase(unittest.TestCase):
                 },
             ),
             (
-                "(ReleaseDate ge 2022-02-06T23:00:00Z and ReleaseDate le 2022-02-13T23:00:00Z)",
+                "(ReleaseDate ge 2022-02-06T21:00:00%2B02:00 and ReleaseDate le 2022-02-13T23:00:00Z)",
                 {
                     "ReleaseDate": {
                         "$lte": datetime.datetime(2022, 2, 13, 23, 0, tzinfo=datetime.timezone.utc),
-                        "$gte": datetime.datetime(2022, 2, 6, 23, 0, tzinfo=datetime.timezone.utc),
+                        "$gte": datetime.datetime(2022, 2, 6, 19, 0, tzinfo=datetime.timezone.utc),
                     }
                 },
             ),
