@@ -16,6 +16,9 @@ def read(fname):
 setup(
     name="odata_server",
     version=odata_server.__version__,
+    description="Python library to create oData v4 APIs",
+    long_description=read("README.md"),
+    long_description_content_type="text/markdown",
     packages=("odata_server",),
     include_package_data=True,
     install_requires=read("./requirements.txt"),
