@@ -604,9 +604,9 @@ def process_entity_type(entity_type, schema=None):
     if entity_type.key_properties is not None:
         for key_prop in entity_type.key_properties:
             if key_prop not in entity_type.properties:
-                raise ValueError("Entity Type {} is missing key property: {}".format(entity_type.Name, key_prop))
+                raise ValueError(f"Entity Type {entity_type.Name} is missing key property: {key_prop}")
             elif entity_type.properties[key_prop].Nullable:
-                raise ValueError("Entity Type {} has a nullable key property: {}".format(entity_type.Name, key_prop))
+                raise ValueError(f"Entity Type {entity_type.Name} has a nullable key property: {key_prop}")
 
 
 class Edmx(EdmItem):
