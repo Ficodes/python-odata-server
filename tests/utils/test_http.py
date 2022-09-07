@@ -9,7 +9,6 @@ from odata_server.utils.http import make_response
 
 
 class HTTPUtilsTestCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.app = Flask("tests")
@@ -20,10 +19,18 @@ class HTTPUtilsTestCase(unittest.TestCase):
         test_data = (
             (None, None, {"OData-Version": "4.0"}),
             ({}, None, None),
-            ((c for c in ("{", "}")), None, {"Content-Type": "application/json;odata.streaming=true"}),
+            (
+                (c for c in ("{", "}")),
+                None,
+                {"Content-Type": "application/json;odata.streaming=true"},
+            ),
             (None, "etag", {"OData-Version": "4.0"}),
             ({}, "etag2", None),
-            ((c for c in ("{", "}")), "etag3", {"Content-Type": "application/json;odata.streaming=true"}),
+            (
+                (c for c in ("{", "}")),
+                "etag3",
+                {"Content-Type": "application/json;odata.streaming=true"},
+            ),
         )
 
         for body, etag, headers in test_data:
@@ -33,7 +40,9 @@ class HTTPUtilsTestCase(unittest.TestCase):
 
                 make_response(body, status=200, etag=etag, headers=headers)
 
-                Response.assert_called_once_with(unittest.mock.ANY, 200, headers=headers)
+                Response.assert_called_once_with(
+                    unittest.mock.ANY, 200, headers=headers
+                )
                 if etag is not None:
                     Response().set_etag.assert_called_once_with(etag, weak=True)
                     Response().add_etag.assert_not_called()

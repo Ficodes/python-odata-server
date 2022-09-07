@@ -3,12 +3,14 @@
 import json
 import types
 
-from flask import request, Response, stream_with_context
+from flask import Response, request, stream_with_context
 
 from odata_server.utils.json import JSONEncoder
 
 
-def build_response_headers(maxpagesize=None, _return=None, streaming=False, metadata="full", version="4.0"):
+def build_response_headers(
+    maxpagesize=None, _return=None, streaming=False, metadata="full", version="4.0"
+):
     preferences = {}
 
     if maxpagesize is not None:
@@ -26,12 +28,16 @@ def build_response_headers(maxpagesize=None, _return=None, streaming=False, meta
         "charset=utf-8",
     ]
     if streaming is True:
-        content_type.append("{}=true".format("odata.streaming" if version == "4.0" else "streaming"))
+        content_type.append(
+            "{}=true".format("odata.streaming" if version == "4.0" else "streaming")
+        )
 
     headers = {
         "Content-Type": ";".join(content_type),
         "OData-Version": version,
-        "Preference-Applied": ",".join(["{}={}".format(key, value) for key, value in preferences.items()])
+        "Preference-Applied": ",".join(
+            ["{}={}".format(key, value) for key, value in preferences.items()]
+        ),
     }
     return headers
 
@@ -40,7 +46,9 @@ def make_response(data=None, status=200, etag=None, headers={}):
     if isinstance(data, types.GeneratorType):
         body = stream_with_context(data)
     elif data is not None:
-        body = json.dumps(data, ensure_ascii=False, sort_keys=True, cls=JSONEncoder).encode("utf-8")
+        body = json.dumps(
+            data, ensure_ascii=False, sort_keys=True, cls=JSONEncoder
+        ).encode("utf-8")
     else:
         body = None
 

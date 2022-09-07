@@ -6,13 +6,12 @@ import xml.etree.cElementTree as ET
 
 from odata_server import edm
 
-
 ACTION1 = {
     "Name": "Release",
     "IsBound": False,
     "Parameters": [
         {"Name": "product", "Type": "ODataDemo.Product"},
-    ]
+    ],
 }
 
 ACTION2 = {
@@ -22,9 +21,7 @@ ACTION2 = {
         {"Name": "product", "Type": "ODataDemo.Product"},
         {"Name": "product", "Type": "ODataDemo.Product"},
     ],
-    "ReturnType": {
-        "Type": "Edm.Bool"
-    }
+    "ReturnType": {"Type": "Edm.Bool"},
 }
 
 ACTION3 = {
@@ -33,9 +30,7 @@ ACTION3 = {
     "Parameters": [
         {"Name": "version", "Type": "Edm.String", "Unicode": False},
     ],
-    "ReturnType": {
-        "Type": "Edm.Bool"
-    }
+    "ReturnType": {"Type": "Edm.Bool"},
 }
 
 ENTITY_TYPE1 = {
@@ -47,7 +42,7 @@ ENTITY_TYPE1 = {
         {"Name": "ID", "Type": "Edm.String", "Nullable": False},
         {"Name": "emails", "Type": "Collection(Edm.String)", "Nullable": False},
         {"Name": "recipient", "Type": "Edm.String", "Nullable": False},
-    ]
+    ],
 }
 
 ENTITY_TYPE2 = {
@@ -62,7 +57,7 @@ ENTITY_TYPE2 = {
     ],
     "NavigationProperty": [
         {"Name": "Manager", "Type": "self.Manager"},
-    ]
+    ],
 }
 
 SCHEMA1 = {
@@ -74,7 +69,7 @@ SCHEMA1 = {
     "EntityTypes": [
         ENTITY_TYPE1,
         ENTITY_TYPE2,
-    ]
+    ],
 }
 
 ENTITY_SET1 = {
@@ -87,21 +82,17 @@ ENTITY_SET1 = {
             "Target": "SomeModel.SomeContainer/Categories",
         },
     ],
-    "Annotations": [
-        {
-            "Term": "UI.DisplayName",
-            "String": "Products"
-        }
-    ]
+    "Annotations": [{"Term": "UI.DisplayName", "String": "Products"}],
 }
 
 
 class EdmUnitTests(unittest.TestCase):
-
     def test_action_minimal(self):
-        e = edm.Action({
-            "Name": "Release",
-        })
+        e = edm.Action(
+            {
+                "Name": "Release",
+            }
+        )
 
         self.assertEqual(e.Name, "Release")
         self.assertEqual(e.IsBound, False)
@@ -134,15 +125,12 @@ class EdmUnitTests(unittest.TestCase):
         )
         for field, value, expected_value in test_data:
             with self.subTest(field=field, value=value):
-                a = edm.Annotation({
-                    "Term": "OneTerm",
-                    field: value
-                })
+                a = edm.Annotation({"Term": "OneTerm", field: value})
                 self.assertEqual(a.Term, "OneTerm")
                 self.assertEqual(a.value, expected_value)
                 self.assertEqual(
                     ET.tostring(a.xml(), encoding="utf-8").decode("utf-8"),
-                    '<Annotation {}="{}" Term="OneTerm" />'.format(field, value)
+                    '<Annotation {}="{}" Term="OneTerm" />'.format(field, value),
                 )
 
         # Element annotations
@@ -161,41 +149,37 @@ class EdmUnitTests(unittest.TestCase):
             ),
             (
                 "Collection",
-                [{"String": "abc"}, {"Null": []}, {"Collection": [{"Integer": 5}, {"Bool": True}]}],
+                [
+                    {"String": "abc"},
+                    {"Null": []},
+                    {"Collection": [{"Integer": 5}, {"Bool": True}]},
+                ],
                 ["abc", None, [5, True]],
                 "<Collection><String>abc</String><Null /><Collection><Integer>5</Integer><Bool>true</Bool></Collection></Collection>",
             ),
             (
                 "Record",
-                {"Type": "ComplexType1", "PropertyValues": [{"Property": "Insertable", "Bool": True}]},
                 {
-                    "Insertable": True
+                    "Type": "ComplexType1",
+                    "PropertyValues": [{"Property": "Insertable", "Bool": True}],
                 },
+                {"Insertable": True},
                 '<Record Type="ComplexType1"><PropertyValue Bool="true" Property="Insertable" /></Record>',
             ),
         )
         for field, value, expected_value, subelement in test_data:
             with self.subTest(field=field, value=value):
-                a = edm.Annotation({
-                    "Term": "OneTerm",
-                    field: value
-                })
+                a = edm.Annotation({"Term": "OneTerm", field: value})
                 self.assertEqual(a.Term, "OneTerm")
                 self.assertEqual(a.value, expected_value)
                 self.assertEqual(
                     ET.tostring(a.xml(), encoding="utf-8").decode("utf-8"),
-                    '<Annotation Term="OneTerm">{}</Annotation>'.format(subelement)
+                    '<Annotation Term="OneTerm">{}</Annotation>'.format(subelement),
                 )
-                self.assertEqual(
-                    a.json()[1],
-                    getattr(a, field).json()
-                )
+                self.assertEqual(a.json()[1], getattr(a, field).json())
 
     def test_entity_set_minimal(self):
-        e = edm.EntitySet({
-            "Name": "Products",
-            "EntityType": "Product"
-        })
+        e = edm.EntitySet({"Name": "Products", "EntityType": "Product"})
 
         self.assertEqual(e.Name, "Products")
         self.assertEqual(e.IncludeInServiceDocument, True)
@@ -217,9 +201,7 @@ class EdmUnitTests(unittest.TestCase):
             e.json()
 
     def test_entity_type_minimal(self):
-        e = edm.EntityType({
-            "Name": "h"
-        })
+        e = edm.EntityType({"Name": "h"})
 
         self.assertEqual(e.Name, "h")
         self.assertEqual(len(e.Properties), 0)
@@ -233,9 +215,7 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(e.Properties), 3)
 
     def test_schema_minimal(self):
-        s = edm.Schema({
-            "Namespace": "Testing"
-        })
+        s = edm.Schema({"Namespace": "Testing"})
         self.assertEqual(s.Namespace, "Testing")
 
     def test_schema_full(self):
@@ -245,23 +225,21 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(len(s.EntityTypes), 2)
 
     def test_dataservices_minimal(self):
-        d = edm.DataServices([{
-            "Namespace": "Testing",
-        }])
+        d = edm.DataServices(
+            [
+                {
+                    "Namespace": "Testing",
+                }
+            ]
+        )
         self.assertEqual(len(d.Schemas), 1)
 
     def test_dataservices_full(self):
-        d = edm.DataServices([
-            SCHEMA1
-        ])
+        d = edm.DataServices([SCHEMA1])
         self.assertEqual(len(d.Schemas), 1)
 
     def test_dataservices_full_verbose(self):
-        d = edm.DataServices({
-            "Schemas": [
-                SCHEMA1
-            ]
-        })
+        d = edm.DataServices({"Schemas": [SCHEMA1]})
         self.assertEqual(len(d.Schemas), 1)
         self.assertEqual(type(d.json()), list)
 
@@ -274,11 +252,15 @@ class EdmUnitTests(unittest.TestCase):
         )
         for iscollection, nullable, attr in test_data:
             with self.subTest(iscollection=iscollection, nullable=nullable):
-                n = edm.NavigationProperty({
-                    "Name": "Prop",
-                    "Type": "Collection(Edm.String)" if iscollection else "Edm.String",
-                    "Nullable": nullable,
-                })
+                n = edm.NavigationProperty(
+                    {
+                        "Name": "Prop",
+                        "Type": "Collection(Edm.String)"
+                        if iscollection
+                        else "Edm.String",
+                        "Nullable": nullable,
+                    }
+                )
 
                 if attr:
                     self.assertEqual(n.xml().get("Nullable"), "false")
@@ -286,19 +268,10 @@ class EdmUnitTests(unittest.TestCase):
                     self.assertNotIn("Nullable", n.xml().attrib)
 
     def test_parameter_minimal(self):
-        p = edm.Parameter({
-            "Name": "param",
-            "Type": "Edm.String"
-        })
+        p = edm.Parameter({"Name": "param", "Type": "Edm.String"})
 
         with self.subTest(version="v4.0", format="json"):
-            self.assertEqual(
-                p.json(),
-                {
-                    "$Name": "param",
-                    "$Type": "Edm.String"
-                }
-            )
+            self.assertEqual(p.json(), {"$Name": "param", "$Type": "Edm.String"})
 
         with self.subTest(version="v4.0", format="xml"):
             self.assertEqual(
@@ -308,11 +281,7 @@ class EdmUnitTests(unittest.TestCase):
 
         with self.subTest(version="v4.01", format="json"):
             self.assertEqual(
-                p.json(version="4.01"),
-                {
-                    "$Name": "param",
-                    "$Type": "Edm.String"
-                }
+                p.json(version="4.01"), {"$Name": "param", "$Type": "Edm.String"}
             )
 
         with self.subTest(version="v4.01", format="xml"):
@@ -322,11 +291,13 @@ class EdmUnitTests(unittest.TestCase):
             )
 
     def test_parameter_unicode(self):
-        p = edm.Parameter({
-            "Name": "param",
-            "Type": "Edm.String",
-            "Unicode": False,
-        })
+        p = edm.Parameter(
+            {
+                "Name": "param",
+                "Type": "Edm.String",
+                "Unicode": False,
+            }
+        )
 
         with self.subTest(version="v4.0", format="json"):
             self.assertEqual(
@@ -334,7 +305,7 @@ class EdmUnitTests(unittest.TestCase):
                 {
                     "$Name": "param",
                     "$Type": "Edm.String",
-                }
+                },
             )
 
         with self.subTest(version="v4.0", format="xml"):
@@ -350,7 +321,7 @@ class EdmUnitTests(unittest.TestCase):
                     "$Name": "param",
                     "$Type": "Edm.String",
                     "$Unicode": False,
-                }
+                },
             )
 
         with self.subTest(version="v4.0", format="xml"):
@@ -368,14 +339,20 @@ class EdmUnitTests(unittest.TestCase):
         )
         for iscollection, nullable, attr in test_data:
             with self.subTest(iscollection=iscollection, nullable=nullable):
-                n = edm.Property({
-                    "Name": "Prop",
-                    "Type": "Collection(Edm.String)" if iscollection else "Edm.String",
-                    "Nullable": nullable,
-                })
+                n = edm.Property(
+                    {
+                        "Name": "Prop",
+                        "Type": "Collection(Edm.String)"
+                        if iscollection
+                        else "Edm.String",
+                        "Nullable": nullable,
+                    }
+                )
 
                 if attr:
-                    self.assertEqual(n.xml().get("Nullable"), "true" if nullable else "false")
+                    self.assertEqual(
+                        n.xml().get("Nullable"), "true" if nullable else "false"
+                    )
                 else:
                     self.assertNotIn("Nullable", n.xml().attrib)
 
@@ -384,157 +361,176 @@ class EdmUnitTests(unittest.TestCase):
         self.assertEqual(r.json(), {})
 
     def test_record_simple(self):
-        r = edm.Record({
-            "Insertable": True,
-            "NonInsertableProperties": ["manifest_datetime"]
-        })
+        r = edm.Record(
+            {"Insertable": True, "NonInsertableProperties": ["manifest_datetime"]}
+        )
         self.assertEqual(r.json(), {})
 
     def test_record_full(self):
-        r = edm.Record({
-            "Type": "ComplexType",
-            "Annotations": [
-                {"Term": "Core.Description", "String": "Annotation on record"},
-            ],
-            "PropertyValues": [
-                {"Property": "Insertable", "Bool": True},
-                {"Property": "NonInsertableNavigationProperties", "Collection": []},
-                {"Property": "NonInsertableProperties", "Collection": [{"PropertyPath": "manifest_datetime"}]},
-            ]
-        })
-        self.assertEqual(r.json(), {
-            "@type": "ComplexType",
-            "@Core.Description": "Annotation on record",
-            "Insertable": True,
-            "NonInsertableNavigationProperties": [],
-            "NonInsertableProperties": ["manifest_datetime"],
-        })
+        r = edm.Record(
+            {
+                "Type": "ComplexType",
+                "Annotations": [
+                    {"Term": "Core.Description", "String": "Annotation on record"},
+                ],
+                "PropertyValues": [
+                    {"Property": "Insertable", "Bool": True},
+                    {"Property": "NonInsertableNavigationProperties", "Collection": []},
+                    {
+                        "Property": "NonInsertableProperties",
+                        "Collection": [{"PropertyPath": "manifest_datetime"}],
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            r.json(),
+            {
+                "@type": "ComplexType",
+                "@Core.Description": "Annotation on record",
+                "Insertable": True,
+                "NonInsertableNavigationProperties": [],
+                "NonInsertableProperties": ["manifest_datetime"],
+            },
+        )
 
     def test_schema_key_with_alias(self):
-        s = edm.Schema({
-            "Namespace": "ODataDemo",
-            "EntityTypes": [
-                {
-                    "Name": "Category",
-                    "Key": [
-                        {"Name": "Info/ID", "Alias": "EntityInfoID"},
-                    ],
-                    "Properties": [
-                        {"Name": "Info", "Type": "self.EntityInfo"},
-                        {"Name": "Name", "Nullable": True},
-                    ],
-                },
-            ],
-            "EntityContainers": [
-                {
-                    "Name": "Container",
-                }
-            ],
-            "ComplexTypes": [
-                {
-                    "Name": "EntityInfo",
-                    "Properties": [
-                        {"Name": "ID", "Type": "Edm.Int32"},
-                        {"Name": "Created", "Type": "Edm.DateTimeOffset", "Precision": 0},
-                    ],
-                },
-            ]
-        })
+        s = edm.Schema(
+            {
+                "Namespace": "ODataDemo",
+                "EntityTypes": [
+                    {
+                        "Name": "Category",
+                        "Key": [
+                            {"Name": "Info/ID", "Alias": "EntityInfoID"},
+                        ],
+                        "Properties": [
+                            {"Name": "Info", "Type": "self.EntityInfo"},
+                            {"Name": "Name", "Nullable": True},
+                        ],
+                    },
+                ],
+                "EntityContainers": [
+                    {
+                        "Name": "Container",
+                    }
+                ],
+                "ComplexTypes": [
+                    {
+                        "Name": "EntityInfo",
+                        "Properties": [
+                            {"Name": "ID", "Type": "Edm.Int32"},
+                            {
+                                "Name": "Created",
+                                "Type": "Edm.DateTimeOffset",
+                                "Precision": 0,
+                            },
+                        ],
+                    },
+                ],
+            }
+        )
         self.assertEqual(len(s.EntityTypes), 1)
         self.assertEqual(len(s.ComplexTypes), 1)
         self.assertEqual(len(s.EntityContainers), 1)
         print(json.dumps(s.json(), indent=4))
 
     def test_edmx(self):
-        edmx = edm.Edmx({
-            "DataServices": [{
-                "Namespace": "ODataDemo",
-                "EntityTypes": [
+        edmx = edm.Edmx(
+            {
+                "DataServices": [
                     {
-                        "Name": "Product",
-                        "HasStream": True,
-                        "Key": [{"Name": "ID"}],
-                        "Properties": [
+                        "Namespace": "ODataDemo",
+                        "EntityTypes": [
                             {
-                                "Name": "ID",
-                                "Type": "Edm.Int32",
-                                "Nullable": False
-                            },
-                            {
-                                "Name": "Description",
-                                "Type": "Edm.String",
-                                "Annotations": [
-                                    {"Term": "Core.IsLanguageDependent"},
-                                ],
-                            },
-                        ],
-                        "NavigationProperties": [
-                            {
-                                "Name": "Category",
-                                "Partner": "Products",
-                                "Type": "ODataDemo.Category",
-                                "Nullable": False,
-                                "Annotations": [
-                                    {"Term": "PythonODataServer.Embedded", "Bool": True},
-                                ],
-                            }
-                        ],
-                    },
-                    {
-                        "Name": "Category",
-                        "Key": [{"Name": "ID"}],
-                        "Properties": [
-                            {
-                                "Name": "ID",
-                                "Type": "Edm.Int32",
-                                "Nullable": False
-                            },
-                            {
-                                "Name": "Name",
-                                "Type": "Edm.String",
-                                "Nullable": False,
-                                "Annotations": [
-                                    {"Term": "Core.IsLanguageDependent"},
-                                ]
-                            },
-                        ],
-                        "NavigationProperties": [
-                            {
-                                "Name": "Products",
-                                "Partner": "Category",
-                                "Type": "Collection(ODataDemo.Product)",
-                                "OnDelete": {"Action": "Cascade"}
-                            }
-                        ]
-                    },
-                ],
-                "EntityContainers": [
-                    {
-                        "Name": "DemoService",
-                        "EntitySets": [
-                            {
-                                "Name": "Products",
-                                "EntityType": "ODataDemo.Product",
-                                "NavigationPropertyBindings": [
+                                "Name": "Product",
+                                "HasStream": True,
+                                "Key": [{"Name": "ID"}],
+                                "Properties": [
                                     {
-                                        "Path": "Category",
-                                        "Target": "Categories"
+                                        "Name": "ID",
+                                        "Type": "Edm.Int32",
+                                        "Nullable": False,
+                                    },
+                                    {
+                                        "Name": "Description",
+                                        "Type": "Edm.String",
+                                        "Annotations": [
+                                            {"Term": "Core.IsLanguageDependent"},
+                                        ],
                                     },
                                 ],
+                                "NavigationProperties": [
+                                    {
+                                        "Name": "Category",
+                                        "Partner": "Products",
+                                        "Type": "ODataDemo.Category",
+                                        "Nullable": False,
+                                        "Annotations": [
+                                            {
+                                                "Term": "PythonODataServer.Embedded",
+                                                "Bool": True,
+                                            },
+                                        ],
+                                    }
+                                ],
                             },
                             {
-                                "Name": "Categories",
-                                "EntityType": "ODataDemo.Category",
-                                "NavigationPropertyBindings": [{
-                                    "Path": "Products",
-                                    "Target": "Products"
-                                }],
+                                "Name": "Category",
+                                "Key": [{"Name": "ID"}],
+                                "Properties": [
+                                    {
+                                        "Name": "ID",
+                                        "Type": "Edm.Int32",
+                                        "Nullable": False,
+                                    },
+                                    {
+                                        "Name": "Name",
+                                        "Type": "Edm.String",
+                                        "Nullable": False,
+                                        "Annotations": [
+                                            {"Term": "Core.IsLanguageDependent"},
+                                        ],
+                                    },
+                                ],
+                                "NavigationProperties": [
+                                    {
+                                        "Name": "Products",
+                                        "Partner": "Category",
+                                        "Type": "Collection(ODataDemo.Product)",
+                                        "OnDelete": {"Action": "Cascade"},
+                                    }
+                                ],
                             },
+                        ],
+                        "EntityContainers": [
+                            {
+                                "Name": "DemoService",
+                                "EntitySets": [
+                                    {
+                                        "Name": "Products",
+                                        "EntityType": "ODataDemo.Product",
+                                        "NavigationPropertyBindings": [
+                                            {
+                                                "Path": "Category",
+                                                "Target": "Categories",
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        "Name": "Categories",
+                                        "EntityType": "ODataDemo.Category",
+                                        "NavigationPropertyBindings": [
+                                            {"Path": "Products", "Target": "Products"}
+                                        ],
+                                    },
+                                ],
+                            }
                         ],
                     }
                 ]
-            }]
-        })
+            }
+        )
 
         ET.tostring(edmx.xml())
 

@@ -1,15 +1,17 @@
 # Copyright (c) 2022 Future Internet Consulting and Development Solutions S.L.
 
-from copy import deepcopy
 import unittest
+from copy import deepcopy
 
 from odata_server.utils.common import (
-    crop_result, extract_id_value, format_literal, format_key_predicate
+    crop_result,
+    extract_id_value,
+    format_key_predicate,
+    format_literal,
 )
 
 
 class CommonUtilsTestCase(unittest.TestCase):
-
     def test_crop_result(self):
         data = {
             "ID": 1,
@@ -77,9 +79,7 @@ class CommonUtilsTestCase(unittest.TestCase):
                 self.assertEqual(format_key_predicate(value), expected_value)
 
     def test_extract_id_value(self):
-        entity_type = unittest.mock.Mock(
-            key_properties=set(("a", "b"))
-        )
+        entity_type = unittest.mock.Mock(key_properties=set(("a", "b")))
         self.assertEqual(
             extract_id_value(
                 entity_type,
@@ -96,9 +96,7 @@ class CommonUtilsTestCase(unittest.TestCase):
         )
 
     def test_extract_id_value_key_error(self):
-        entity_type = unittest.mock.Mock(
-            key_properties=set(("a", "b"))
-        )
+        entity_type = unittest.mock.Mock(key_properties=set(("a", "b")))
         with self.assertRaises(KeyError):
             extract_id_value(
                 entity_type,

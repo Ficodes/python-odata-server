@@ -1,9 +1,10 @@
 # Copyright (c) 2022 Future Internet Consulting and Development Solutions S.L.
 
-import flask
 import json
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
+
+import flask
 
 from odata_server.utils.json import generate_collection_response
 
@@ -13,7 +14,6 @@ def view():
 
 
 class JSONTestCase(unittest.TestCase):
-
     def test_generate_collection_response(self):
         app = flask.Flask(__name__)
         app.add_url_rule("/Product", view_func=view, endpoint="odata.Product")
@@ -27,13 +27,15 @@ class JSONTestCase(unittest.TestCase):
         RootEntitySet = SimpleNamespace(Name="Product")
         for label, results, hasnext in test_data:
             with self.subTest(msg=label):
-                prepare = unittest.mock.Mock(side_effect=(
-                    {"a": "1"},
-                    {"b": "2"},
-                    {"c": "3"},
-                    {"d": "4"},
-                    {"e": "5"},
-                ))
+                prepare = unittest.mock.Mock(
+                    side_effect=(
+                        {"a": "1"},
+                        {"b": "2"},
+                        {"c": "3"},
+                        {"d": "4"},
+                        {"e": "5"},
+                    )
+                )
                 generator = generate_collection_response(
                     iter(results),
                     0,

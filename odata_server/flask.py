@@ -2,35 +2,55 @@
 
 import json
 import logging
-from urllib.parse import parse_qs as urllib_parse_qs
+import uuid
 import xml.etree.cElementTree as ET
+from urllib.parse import parse_qs as urllib_parse_qs
 
 import abnf
-from flask import abort, Blueprint, request, Response, url_for
 import pymongo
-import uuid
 import werkzeug
+from flask import Blueprint, Response, abort, request, url_for
 
 from odata_server import edm
-from odata_server.utils import build_response_headers, expand_result, format_key_predicate, get_collection, make_response, process_collection_filters, process_expand_fields
+from odata_server.utils import (
+    build_response_headers,
+    expand_result,
+    format_key_predicate,
+    get_collection,
+    make_response,
+    process_collection_filters,
+    process_expand_fields,
+)
 from odata_server.utils.common import extract_id_value
 from odata_server.utils.flask import add_odata_annotations
 from odata_server.utils.mongo import build_initial_projection, get_mongo_prefix
 from odata_server.utils.parse import ODataGrammar, parse_key_predicate, parse_qs
 
-
 logger = logging.getLogger(__name__)
 
 
 class ODataBluePrint(Blueprint):
-
     def make_setup_state(self, app, options, first_registration=False):
-        state = super().make_setup_state(app, options, first_registration=first_registration)
+        state = super().make_setup_state(
+            app, options, first_registration=first_registration
+        )
         edmx = edm.Edmx(options["options"].get("edmx"))
         mongo = options["options"].get("mongo")
 
-        state.add_url_rule("/", view_func=get_service_document, methods=("GET",), endpoint="root", defaults={"edmx": edmx})
-        state.add_url_rule("/$metadata", view_func=get_metadata, methods=("GET",), endpoint="$metadata", defaults={"edmx": edmx})
+        state.add_url_rule(
+            "/",
+            view_func=get_service_document,
+            methods=("GET",),
+            endpoint="root",
+            defaults={"edmx": edmx},
+        )
+        state.add_url_rule(
+            "/$metadata",
+            view_func=get_metadata,
+            methods=("GET",),
+            endpoint="$metadata",
+            defaults={"edmx": edmx},
+        )
 
         edmx.process()
         edmx.resolve_code_references()
@@ -49,12 +69,20 @@ class ODataBluePrint(Blueprint):
                             "Insertable": True,
                             "NonInsertableProperties": [],
                             "NonInsertableNavigationProperties": [],
-                            "RequiredProperties": []
-                        }
+                            "RequiredProperties": [],
+                        },
                     )
 
-                    if insert_restrictions.get("Insertable", True) and len(entity_type.computed_properties) > 0 and entity_set.custom_insert_business is None:
-                        logger.error("EntitySet {} is managing an entity type that contains computed properties. The logic for initializaing those computed properties has to be configured".format(entity_set.Name))
+                    if (
+                        insert_restrictions.get("Insertable", True)
+                        and len(entity_type.computed_properties) > 0
+                        and entity_set.custom_insert_business is None
+                    ):
+                        logger.error(
+                            "EntitySet {} is managing an entity type that contains computed properties. The logic for initializaing those computed properties has to be configured".format(
+                                entity_set.Name
+                            )
+                        )
                         insert_restrictions["Insertable"] = "False"
 
                     if insert_restrictions["Insertable"]:
@@ -69,7 +97,7 @@ class ODataBluePrint(Blueprint):
                             "NonUpdatableProperties": [],
                             "NonUpdatableNavigationProperties": [],
                             "RequiredProperties": [],
-                        }
+                        },
                     )
 
                     if update_restrictions["Updatable"]:
@@ -82,7 +110,7 @@ class ODataBluePrint(Blueprint):
                         {
                             "Deletable": True,
                             "NonDeletableNavigationProperties": [],
-                        }
+                        },
                     )
 
                     if delete_restrictions["Deletable"]:
@@ -90,12 +118,20 @@ class ODataBluePrint(Blueprint):
 
                     # Main configuration
                     if "Org.OData.Core.V1.ResourcePath" not in entity_set.annotations:
-                        entity_set.Annotations.append(edm.Annotation({
-                            "Term": "Org.OData.Core.V1.ResourcePath",
-                            "String": entity_set.Name
-                        }))
-                        entity_set.annotations["Org.OData.Core.V1.ResourcePath"] = entity_set.Annotations[-1]
-                    resource_path = edm.get_annotation(entity_set, "Org.OData.Core.V1.ResourcePath")
+                        entity_set.Annotations.append(
+                            edm.Annotation(
+                                {
+                                    "Term": "Org.OData.Core.V1.ResourcePath",
+                                    "String": entity_set.Name,
+                                }
+                            )
+                        )
+                        entity_set.annotations[
+                            "Org.OData.Core.V1.ResourcePath"
+                        ] = entity_set.Annotations[-1]
+                    resource_path = edm.get_annotation(
+                        entity_set, "Org.OData.Core.V1.ResourcePath"
+                    )
 
                     # URL rules
                     state.add_url_rule(
@@ -107,7 +143,7 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "RootEntitySet": entity_set,
-                        }
+                        },
                     )
                     state.add_url_rule(
                         "/{}(<key_predicate>)".format(entity_set.Name),
@@ -118,7 +154,7 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "RootEntitySet": entity_set,
-                        }
+                        },
                     )
                     state.add_url_rule(
                         "/{}/$count".format(entity_set.Name),
@@ -129,7 +165,7 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "EntitySet": entity_set,
-                        }
+                        },
                     )
                     state.add_url_rule(
                         "/{}<path:navigation>".format(entity_set.Name),
@@ -140,22 +176,20 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "RootEntitySet": entity_set,
-                        }
+                        },
                     )
 
         return state
 
 
-odata_bp = ODataBluePrint("odata", __name__, url_prefix='/odata')
+odata_bp = ODataBluePrint("odata", __name__, url_prefix="/odata")
 
 
 def get_service_document(edmx):
     format = request.args.get("$format")
 
     context = url_for("odata.$metadata", _external=True).replace("%24", "$")
-    headers = {
-        "OData-Version": "4.0"
-    }
+    headers = {"OData-Version": "4.0"}
     assets = []
     for schema in edmx.DataServices.Schemas:
         for container in schema.EntityContainers:
@@ -166,15 +200,21 @@ def get_service_document(edmx):
     if format in (None, "application/json", "json"):
         document = {
             "@odata.context": context,
-            "value": [{
-                "name": asset.Name,
-                "kind": asset.__class__.__name__,
-                "url": asset.Name,
-            } for asset in assets
-            ]
+            "value": [
+                {
+                    "name": asset.Name,
+                    "kind": asset.__class__.__name__,
+                    "url": asset.Name,
+                }
+                for asset in assets
+            ],
         }
         headers["Content-Type"] = "application/json;charset=utf-8"
-        return Response(json.dumps(document, ensure_ascii=False).encode("utf-8"), status=200, headers=headers)
+        return Response(
+            json.dumps(document, ensure_ascii=False).encode("utf-8"),
+            status=200,
+            headers=headers,
+        )
     # elif format in ("application/xml", "xml"):
     #     headers["Content-Type"] = "application/xml;charset=utf-8"
     #     return Response(ET.tostring(edmx.xml(), encoding="UTF-8", xml_declaration=True), status=200, headers=headers)
@@ -185,23 +225,28 @@ def get_service_document(edmx):
 def get_metadata(edmx):
     format = request.args.get("$format")
 
-    headers = {
-        "OData-Version": "4.0"
-    }
+    headers = {"OData-Version": "4.0"}
     if format in (None, "application/xml", "xml"):
         headers["Content-Type"] = "application/xml;charset=utf-8"
-        return Response(ET.tostring(edmx.xml(), encoding="utf-8", xml_declaration=True), status=200, headers=headers)
+        return Response(
+            ET.tostring(edmx.xml(), encoding="utf-8", xml_declaration=True),
+            status=200,
+            headers=headers,
+        )
     elif format in (None, "application/json", "json"):
         headers["Content-Type"] = "application/json;charset=utf-8"
-        return Response(json.dumps(edmx.json(), ensure_ascii=False).encode("utf-8"), status=200, headers=headers)
+        return Response(
+            json.dumps(edmx.json(), ensure_ascii=False).encode("utf-8"),
+            status=200,
+            headers=headers,
+        )
     else:
         return Response(status=415)
 
 
 def parse_prefer_header(value, version="4.0"):
     data = {
-        key: values[-1]
-        for key, values in urllib_parse_qs(value, separator=",").items()
+        key: values[-1] for key, values in urllib_parse_qs(value, separator=",").items()
     }
 
     # maxpagesize
@@ -235,11 +280,15 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
     prefix = get_mongo_prefix(RootEntitySet, subject)
 
     select_arg = qs.get("$select", "")
-    projection, fields_to_remove = build_initial_projection(EntityType, select_arg, prefix=prefix, anonymous=anonymous)
+    projection, fields_to_remove = build_initial_projection(
+        EntityType, select_arg, prefix=prefix, anonymous=anonymous
+    )
 
     # Process expand fields
     expand_arg = qs.get("$expand", "")
-    expand_details = process_expand_fields(RootEntitySet, subject.entity_type, expand_arg, projection, prefix=prefix)
+    expand_details = process_expand_fields(
+        RootEntitySet, subject.entity_type, expand_arg, projection, prefix=prefix
+    )
 
     filters = id_value
     filters["uuid"] = {"$exists": True}
@@ -256,19 +305,17 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
             {"$project": projection},
         ]
         if seq is not None:
-            pipeline.extend([
-                {
-                    "$unwind": {
-                        "path": "${}".format(prefix),
-                        "includeArrayIndex": "Seq"
-                    }
-                },
-                {
-                    "$match": {
-                        "Seq": seq
-                    }
-                }
-            ])
+            pipeline.extend(
+                [
+                    {
+                        "$unwind": {
+                            "path": "${}".format(prefix),
+                            "includeArrayIndex": "Seq",
+                        }
+                    },
+                    {"$match": {"Seq": seq}},
+                ]
+            )
         else:
             pipeline.append({"$unwind": "${}".format(prefix)})
 
@@ -286,27 +333,36 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
         del data["uuid"]
         data = expand_result(RootEntitySet, expand_details, data)
     else:
-        data = add_odata_annotations(expand_result(RootEntitySet, expand_details, data), RootEntitySet)
+        data = add_odata_annotations(
+            expand_result(RootEntitySet, expand_details, data), RootEntitySet
+        )
 
     for field in fields_to_remove:
         del data[field]
 
-    anchor = "{}/$entity".format("{}/{}".format(RootEntitySet.Name, prefix) if prefix != "" else RootEntitySet.Name)
-    data["@odata.context"] = "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor)
+    anchor = "{}/$entity".format(
+        "{}/{}".format(RootEntitySet.Name, prefix)
+        if prefix != ""
+        else RootEntitySet.Name
+    )
+    data["@odata.context"] = "{}#{}".format(
+        url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor
+    )
     headers = build_response_headers()
     return make_response(data, status=200, etag=etag, headers=headers)
 
 
 def deref_multi(data, keys):
-    return deref_multi(data[keys[0]], keys[1:]) \
-        if keys else data
+    return deref_multi(data[keys[0]], keys[1:]) if keys else data
 
 
 def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
     mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
     prefix = get_mongo_prefix(RootEntitySet, Property)
 
-    mongo_field = Property.Name if prefix == "" else "{}.{}".format(prefix, Property.Name)
+    mongo_field = (
+        Property.Name if prefix == "" else "{}.{}".format(prefix, Property.Name)
+    )
     filters = id_value.copy()
     filters["uuid"] = {"$exists": True}
     if prefix != "":
@@ -321,8 +377,10 @@ def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
         keyPredicate = format_key_predicate(id_value)
         anchor = "{}({})/{}".format(RootEntitySet.Name, keyPredicate, Property.Name)
         data = {
-            "@odata.context": "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor),
-            "value": data
+            "@odata.context": "{}#{}".format(
+                url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor
+            ),
+            "value": data,
         }
     headers = build_response_headers()
     return make_response(data, status=200, headers=headers)
@@ -333,13 +391,13 @@ def get_collection_count(edmx, mongo, EntitySet, filters=None):
 
     # Process filters
     if filters is None:
-        filters = {
-            "uuid": {"$exists": True}
-        }
+        filters = {"uuid": {"$exists": True}}
 
     filter_arg = qs.get("$filter", "")
     search_arg = qs.get("$search", "")
-    filters = process_collection_filters(filter_arg, search_arg, filters, EntitySet.entity_type)
+    filters = process_collection_filters(
+        filter_arg, search_arg, filters, EntitySet.entity_type
+    )
 
     mongo_collection = mongo.get_collection(EntitySet.mongo_collection)
     count = mongo_collection.count_documents(filters)
@@ -357,7 +415,9 @@ def entity_set_endpoint(mongo, edmx, RootEntitySet):
 
 def entity_set_entity_endpoint(mongo, edmx, RootEntitySet, key_predicate):
     try:
-        key_predicate = ODataGrammar("keyPredicate").parse_all("({})".format(key_predicate))
+        key_predicate = ODataGrammar("keyPredicate").parse_all(
+            "({})".format(key_predicate)
+        )
     except abnf.parser.ParseError:
         abort(404)
 
@@ -377,7 +437,11 @@ def validate_insert_payload(body, EntityType, deepinsert=False):
     for prop in EntityType.nullable_properties:
         body.setdefault(prop, None)
 
-    required_properties = set(p.Name for p in EntityType.properties.values()) - EntityType.computed_properties - EntityType.nullable_properties
+    required_properties = (
+        set(p.Name for p in EntityType.properties.values())
+        - EntityType.computed_properties
+        - EntityType.nullable_properties
+    )
     for prop in required_properties:
         if prop not in body:
             abort(400)
@@ -410,7 +474,13 @@ def patch_entity_set(mongo, edmx, EntitySet, id_value, body):
     qs = parse_qs(request.query_string)
     expand_arg = qs.get("$expand", "")
     select_arg = qs.get("$select", "")
-    response_presentation = "minimal" if prefers.get("return", "representation") == "minimal" and expand_arg == "" and select_arg == "" else "representation"
+    response_presentation = (
+        "minimal"
+        if prefers.get("return", "representation") == "minimal"
+        and expand_arg == ""
+        and select_arg == ""
+        else "representation"
+    )
 
     # Perform the operation
     mongo_collection = mongo.get_collection(EntitySet.mongo_collection)
@@ -462,7 +532,11 @@ def post_entity_set(mongo, edmx, EntitySet, body):
         properties = set(body.keys())
         missing_computed_properties = EntityType.computed_properties - properties
         if len(missing_computed_properties) > 0:
-            raise Exception("The following computed property have not been filled by the custom insert code: {}".format(missing_computed_properties))
+            raise Exception(
+                "The following computed property have not been filled by the custom insert code: {}".format(
+                    missing_computed_properties
+                )
+            )
 
     if not persisted:
         # Persistence
@@ -477,7 +551,10 @@ def post_entity_set(mongo, edmx, EntitySet, body):
         else:
             id_value = extract_id_value(EntityType, body)
             if prefix != "":
-                payload = {"{}.{}".format(prefix, field): value for field, value in body.items()}
+                payload = {
+                    "{}.{}".format(prefix, field): value
+                    for field, value in body.items()
+                }
             else:
                 payload = body
             payload["uuid"] = body["uuid"] = uuid.uuid4()
@@ -490,14 +567,24 @@ def post_entity_set(mongo, edmx, EntitySet, body):
     qs = parse_qs(request.query_string)
     expand_arg = qs.get("$expand", "")
     select_arg = qs.get("$select", "")
-    response_presentation = "minimal" if prefers.get("return", "representation") == "minimal" and expand_arg == "" and select_arg == "" else "representation"
-    response_body = None if response_presentation == "minimal" else add_odata_annotations(body, EntitySet)
+    response_presentation = (
+        "minimal"
+        if prefers.get("return", "representation") == "minimal"
+        and expand_arg == ""
+        and select_arg == ""
+        else "representation"
+    )
+    response_body = (
+        None
+        if response_presentation == "minimal"
+        else add_odata_annotations(body, EntitySet)
+    )
     status = 204 if response_presentation == "minimal" else 201
 
     headers = build_response_headers(_return=response_presentation)
     headers["Location"] = "{}({})".format(
         url_for("odata.{}".format(EntitySet.Name), _external=True),
-        format_key_predicate(extract_id_value(EntitySet.entity_type, body))
+        format_key_predicate(extract_id_value(EntitySet.entity_type, body)),
     )
 
     return make_response(response_body, status=status, headers=headers)
@@ -539,13 +626,21 @@ def get_entity_set(mongo, edmx, RootEntitySet, navigation=""):
                         # Navigate to the new node
                         subject = target
                         if subject.entity_type.Name in RootEntitySet.bindings:
-                            RootEntitySet = RootEntitySet.bindings[subject.entity_type.Name]
+                            RootEntitySet = RootEntitySet.bindings[
+                                subject.entity_type.Name
+                            ]
 
-                        count = len(nav.children[1].children) == 3 and nav.children[1].children[2].name == "count"
+                        count = (
+                            len(nav.children[1].children) == 3
+                            and nav.children[1].children[2].name == "count"
+                        )
                     elif path in subject.entity_type.properties:
                         # Navigate through structural properties
                         subject = subject.entity_type.properties[path]
-                        raw = len(nav.children[1].children) == 3 and nav.children[1].children[2].name == "value"
+                        raw = (
+                            len(nav.children[1].children) == 3
+                            and nav.children[1].children[2].name == "value"
+                        )
                     else:
                         abort(404)
 
@@ -559,7 +654,9 @@ def get_entity_set(mongo, edmx, RootEntitySet, navigation=""):
                     key_property: {"$eq": key_value}
                     for key_property, key_value in id_value.items()
                 }
-                return get_collection(mongo, RootEntitySet, subject, prefers, filters=filters, count=count)
+                return get_collection(
+                    mongo, RootEntitySet, subject, prefers, filters=filters, count=count
+                )
             else:
                 return get(mongo, RootEntitySet, subject, id_value, prefers)
 
@@ -568,11 +665,15 @@ def get_entity_set(mongo, edmx, RootEntitySet, navigation=""):
                 return get(mongo, RootEntitySet, subject, id_value, prefers)
             else:
                 count = request.args.get("$count", "false").strip().lower() == "true"
-                return get_collection(mongo, RootEntitySet, subject, prefers, count=count)
+                return get_collection(
+                    mongo, RootEntitySet, subject, prefers, count=count
+                )
         elif isinstance(subject, edm.Property):
             if id_value is None or count:
                 abort(404)
-            return get_property(mongo, RootEntitySet, id_value, prefers, subject, raw=raw)
+            return get_property(
+                mongo, RootEntitySet, id_value, prefers, subject, raw=raw
+            )
         else:
             abort(404)
     else:

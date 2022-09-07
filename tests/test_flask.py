@@ -3,151 +3,134 @@
 import unittest
 from unittest.mock import ANY, Mock, patch
 
-from flask import Flask
 import werkzeug
+from flask import Flask
 
 from odata_server.flask import odata_bp
 
-
 edmx = {
-    "DataServices": [{
-        "Namespace": "ODataDemo",
-        "EntityTypes": [
-            {
-                "Name": "PricePlan",
-                "Key": [{"Name": "ID"}],
-                "Properties": [
-                    {
-                        "Name": "ID",
-                        "Type": "Edm.Int32",
-                        "Nullable": False
-                    },
-                    {
-                        "Name": "Name",
-                        "Type": "Edm.String",
-                        "Nullable": False
-                    },
-                ]
-            },
-            {
-                "Name": "Product",
-                "HasStream": True,
-                "Key": [{"Name": "ID"}],
-                "Properties": [
-                    {
-                        "Name": "ID",
-                        "Type": "Edm.Int32",
-                        "Nullable": False
-                    },
-                    {
-                        "Name": "Description",
-                        "Type": "Edm.String",
-                        "Annotations": [
-                            {"Term": "Core.IsLanguageDependent"},
-                        ],
-                    },
-                    {
-                        "Name": "Rating",
-                        "Type": "Edm.Int32",
-                        "Nullable": True,
-                    },
-                    {
-                        "Name": "ReleaseDate",
-                        "Type": "Edm.Date",
-                        "Nullable": False,
-                        "Annotations": [
-                            {"Term": "Org.OData.Core.V1.Computed", "Bool": True},
-                        ],
-                    },
-                    {
-                        "Name": "DiscontinuedDate",
-                        "Type": "Edm.Date",
-                        "Nullable": True,
-                    },
-                ],
-                "NavigationProperties": [
-                    {
-                        "Name": "PricePlan",
-                        "Type": "ODataDemo.PricePlan",
-                        "Nullable": False,
-                    },
-                    {
-                        "Name": "Category",
-                        "Partner": "Products",
-                        "Type": "ODataDemo.Category",
-                        "Nullable": False,
-                        "Annotations": [
-                            {"Term": "PythonODataServer.Embedded", "Bool": True},
-                        ],
-                    }
-                ],
-            },
-            {
-                "Name": "Category",
-                "Key": [{"Name": "ID"}],
-                "Properties": [
-                    {
-                        "Name": "ID",
-                        "Type": "Edm.Int32",
-                        "Nullable": False
-                    },
-                    {
-                        "Name": "Name",
-                        "Type": "Edm.String",
-                        "Nullable": False,
-                        "Annotations": [
-                            {"Term": "Core.IsLanguageDependent"},
-                        ]
-                    },
-                ],
-                "NavigationProperties": [
-                    {
-                        "Name": "Products",
-                        "Partner": "Category",
-                        "Type": "Collection(ODataDemo.Product)",
-                        "OnDelete": {"Action": "Cascade"}
-                    }
-                ]
-            },
-        ],
-        "EntityContainers": [
-            {
-                "Name": "DemoService",
-                "EntitySets": [
-                    {
-                        "Name": "Products",
-                        "EntityType": "ODataDemo.Product",
-                        "NavigationPropertyBindings": [
-                            {
-                                "Path": "Category",
-                                "Target": "Categories"
-                            },
-                            {
-                                "Path": "PricePlan",
-                                "Target": "PricePlans",
-                            }
-                        ],
-                        "Annotations": [
-                            {"Term": "PythonODataServer.CustomInsertBusinessLogic", "String": "tests.test_flask.custom_insert_business"}
-                        ]
-                    },
-                    {
-                        "Name": "Categories",
-                        "EntityType": "ODataDemo.Category",
-                        "NavigationPropertyBindings": [{
-                            "Path": "Products",
-                            "Target": "Products"
-                        }],
-                    },
-                    {
-                        "Name": "PricePlans",
-                        "EntityType": "ODataDemo.PricePlan",
-                    }
-                ],
-
-            }
-        ]
-    }]
+    "DataServices": [
+        {
+            "Namespace": "ODataDemo",
+            "EntityTypes": [
+                {
+                    "Name": "PricePlan",
+                    "Key": [{"Name": "ID"}],
+                    "Properties": [
+                        {"Name": "ID", "Type": "Edm.Int32", "Nullable": False},
+                        {"Name": "Name", "Type": "Edm.String", "Nullable": False},
+                    ],
+                },
+                {
+                    "Name": "Product",
+                    "HasStream": True,
+                    "Key": [{"Name": "ID"}],
+                    "Properties": [
+                        {"Name": "ID", "Type": "Edm.Int32", "Nullable": False},
+                        {
+                            "Name": "Description",
+                            "Type": "Edm.String",
+                            "Annotations": [
+                                {"Term": "Core.IsLanguageDependent"},
+                            ],
+                        },
+                        {
+                            "Name": "Rating",
+                            "Type": "Edm.Int32",
+                            "Nullable": True,
+                        },
+                        {
+                            "Name": "ReleaseDate",
+                            "Type": "Edm.Date",
+                            "Nullable": False,
+                            "Annotations": [
+                                {"Term": "Org.OData.Core.V1.Computed", "Bool": True},
+                            ],
+                        },
+                        {
+                            "Name": "DiscontinuedDate",
+                            "Type": "Edm.Date",
+                            "Nullable": True,
+                        },
+                    ],
+                    "NavigationProperties": [
+                        {
+                            "Name": "PricePlan",
+                            "Type": "ODataDemo.PricePlan",
+                            "Nullable": False,
+                        },
+                        {
+                            "Name": "Category",
+                            "Partner": "Products",
+                            "Type": "ODataDemo.Category",
+                            "Nullable": False,
+                            "Annotations": [
+                                {"Term": "PythonODataServer.Embedded", "Bool": True},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "Name": "Category",
+                    "Key": [{"Name": "ID"}],
+                    "Properties": [
+                        {"Name": "ID", "Type": "Edm.Int32", "Nullable": False},
+                        {
+                            "Name": "Name",
+                            "Type": "Edm.String",
+                            "Nullable": False,
+                            "Annotations": [
+                                {"Term": "Core.IsLanguageDependent"},
+                            ],
+                        },
+                    ],
+                    "NavigationProperties": [
+                        {
+                            "Name": "Products",
+                            "Partner": "Category",
+                            "Type": "Collection(ODataDemo.Product)",
+                            "OnDelete": {"Action": "Cascade"},
+                        }
+                    ],
+                },
+            ],
+            "EntityContainers": [
+                {
+                    "Name": "DemoService",
+                    "EntitySets": [
+                        {
+                            "Name": "Products",
+                            "EntityType": "ODataDemo.Product",
+                            "NavigationPropertyBindings": [
+                                {"Path": "Category", "Target": "Categories"},
+                                {
+                                    "Path": "PricePlan",
+                                    "Target": "PricePlans",
+                                },
+                            ],
+                            "Annotations": [
+                                {
+                                    "Term": "PythonODataServer.CustomInsertBusinessLogic",
+                                    "String": "tests.test_flask.custom_insert_business",
+                                }
+                            ],
+                        },
+                        {
+                            "Name": "Categories",
+                            "EntityType": "ODataDemo.Category",
+                            "NavigationPropertyBindings": [
+                                {"Path": "Products", "Target": "Products"}
+                            ],
+                        },
+                        {
+                            "Name": "PricePlans",
+                            "EntityType": "ODataDemo.PricePlan",
+                        },
+                    ],
+                }
+            ],
+        }
+    ]
 }
 
 
@@ -161,25 +144,15 @@ DEFAULT_PREFERS = {
 }
 
 
-MINIMAL_PAYLOAD = {
-    "ID": 5,
-    "Description": "A new product"
-}
+MINIMAL_PAYLOAD = {"ID": 5, "Description": "A new product"}
 
-FULL_PAYLOAD = {
-    "ID": 5,
-    "Description": "A new product",
-    "Rating": 3.4
-}
+FULL_PAYLOAD = {"ID": 5, "Description": "A new product", "Rating": 3.4}
 
 FULL_PAYLOAD_DEEP = {
     "ID": 5,
     "Description": "A new product",
     "Rating": 3.4,
-    "PricePlan": {
-        "ID": 1,
-        "Name": "Free"
-    }
+    "PricePlan": {"ID": 1, "Name": "Free"},
 }
 
 mongo = Mock()
@@ -188,7 +161,6 @@ app.register_blueprint(odata_bp, options={"mongo": mongo, "edmx": edmx}, url_pre
 
 
 class BluePrintTestCase(unittest.TestCase):
-
     def setUp(self):
         mongo.reset_mock(return_value=True, side_effect=True)
         self.app = app.test_client()
@@ -197,19 +169,25 @@ class BluePrintTestCase(unittest.TestCase):
         response = self.app.get("/$metadata")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["OData-Version"], "4.0")
-        self.assertEqual(response.headers["Content-Type"], "application/xml;charset=utf-8")
+        self.assertEqual(
+            response.headers["Content-Type"], "application/xml;charset=utf-8"
+        )
 
     def test_metadata_api_xml_format_param(self):
         response = self.app.get("/$metadata?$format=xml")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["OData-Version"], "4.0")
-        self.assertEqual(response.headers["Content-Type"], "application/xml;charset=utf-8")
+        self.assertEqual(
+            response.headers["Content-Type"], "application/xml;charset=utf-8"
+        )
 
     def test_metadata_api_json_format_param(self):
         response = self.app.get("/$metadata?$format=json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["OData-Version"], "4.0")
-        self.assertEqual(response.headers["Content-Type"], "application/json;charset=utf-8")
+        self.assertEqual(
+            response.headers["Content-Type"], "application/json;charset=utf-8"
+        )
 
     def test_metadata_api_format_param_not_supported(self):
         response = self.app.get("/$metadata?$format=yaml")
@@ -235,14 +213,18 @@ class BluePrintTestCase(unittest.TestCase):
         get_property.return_value = ({}, 200)
         response = self.app.get("/Products(5)/Description")
         self.assertEqual(response.status_code, 200)
-        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=False)
+        get_property.assert_called_once_with(
+            mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=False
+        )
 
     @patch("odata_server.flask.get_property")
     def test_get_entity_property_api_by_id_raw(self, get_property):
         get_property.return_value = ({}, 200)
         response = self.app.get("/Products(5)/Description/$value")
         self.assertEqual(response.status_code, 200)
-        get_property.assert_called_once_with(mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=True)
+        get_property.assert_called_once_with(
+            mongo, ANY, {"ID": 5}, DEFAULT_PREFERS, ANY, raw=True
+        )
 
     @patch("odata_server.flask.get_collection")
     def test_get_entity_collection_api_without_filters(self, get_collection):
@@ -263,7 +245,9 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for orderby_expr, expected in test_data:
             with self.subTest(orderby=orderby_expr):
-                mongo.get_collection().find().sort().skip().limit.return_value = iter(())
+                mongo.get_collection().find().sort().skip().limit.return_value = iter(
+                    ()
+                )
                 mongo.reset_mock()
                 response = self.app.get("/Products?$orderby={}".format(orderby_expr))
                 mongo.get_collection().find().sort.assert_called_once_with(expected)
@@ -273,7 +257,9 @@ class BluePrintTestCase(unittest.TestCase):
         mongo.get_collection().find().skip().limit.return_value = iter(())
         mongo.reset_mock()
         response = self.app.get("/Products?$filter=")
-        mongo.get_collection().find.assert_called_once_with({"uuid": {"$exists": True}}, ANY)
+        mongo.get_collection().find.assert_called_once_with(
+            {"uuid": {"$exists": True}}, ANY
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_get_entity_collection_api_basic_filters(self):
@@ -303,10 +289,7 @@ class BluePrintTestCase(unittest.TestCase):
 
     @patch("odata_server.flask.get")
     def xtest_get_entity_navigation_property_id(self, get):
-        get.return_value = (
-            {},
-            200
-        )
+        get.return_value = ({}, 200)
         response = self.app.get("/Categories(0)/Products(1)")
         self.assertEqual(response.status_code, 200)
 
@@ -319,27 +302,19 @@ class BluePrintTestCase(unittest.TestCase):
 
     @patch("odata_server.flask.get_collection")
     def test_get_entity_collection_count(self, get_collection):
-        get_collection.return_value = (
-            {
-                "@odata.count": 3
-            },
-            200
-        )
+        get_collection.return_value = ({"@odata.count": 3}, 200)
         response = self.app.get("/Categories?$count=true")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["@odata.count"], 3)
 
     @patch("odata_server.flask.get_collection")
     def test_get_entity_navigation_property_collection_embedded(self, get_collection):
-        get_collection.return_value = (
-            {
-                "@odata.count": 3
-            },
-            200
-        )
+        get_collection.return_value = ({"@odata.count": 3}, 200)
         response = self.app.get("/Categories(0)/Products")
         self.assertEqual(response.status_code, 200)
-        get_collection.assert_called_once_with(mongo, ANY, ANY, DEFAULT_PREFERS, filters={"ID": {"$eq": 0}}, count=False)
+        get_collection.assert_called_once_with(
+            mongo, ANY, ANY, DEFAULT_PREFERS, filters={"ID": {"$eq": 0}}, count=False
+        )
 
     @patch("odata_server.flask.get")
     def test_get_entity_navigation_property_single_value_embedded(self, get):
@@ -350,9 +325,7 @@ class BluePrintTestCase(unittest.TestCase):
 
     @patch("odata_server.flask.get")
     def test_get_entity_navigation_property_single_value(self, get):
-        mongo.get_collection().find_one.return_value = {
-            "PricePlan": 13
-        }
+        mongo.get_collection().find_one.return_value = {"PricePlan": 13}
         get.return_value = ({}, 200)
         response = self.app.get("/Products(0)/PricePlan")
         self.assertEqual(response.status_code, 200)
@@ -360,23 +333,25 @@ class BluePrintTestCase(unittest.TestCase):
 
     @patch("odata_server.flask.get_collection")
     def test_get_entity_collection_expand_navigation_property(self, get_collection):
-        get_collection.return_value = (
-            {
-                "@odata.count": 3
-            },
-            200
-        )
+        get_collection.return_value = ({"@odata.count": 3}, 200)
         response = self.app.get("/Categories?$expand=Products")
         self.assertEqual(response.status_code, 200)
 
     def test_post_entity_collection_single_entity(self):
-        for label, payload in (("Minimal payload", MINIMAL_PAYLOAD), ("Full payload", FULL_PAYLOAD)):
+        for label, payload in (
+            ("Minimal payload", MINIMAL_PAYLOAD),
+            ("Full payload", FULL_PAYLOAD),
+        ):
             with self.subTest(msg=label):
                 mongo.reset_mock()
                 response = self.app.post("/Products", json=payload)
                 self.assertEqual(response.status_code, 201)
-                self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
-                self.assertEqual(response.headers.get("Preference-Applied"), "return=representation")
+                self.assertEqual(
+                    response.headers.get("Location"), "http://localhost/Products(5)"
+                )
+                self.assertEqual(
+                    response.headers.get("Preference-Applied"), "return=representation"
+                )
                 mongo.get_collection().insert_one.assert_called_once()
 
     def test_post_entity_collection_single_entity_invalid(self):
@@ -390,9 +365,13 @@ class BluePrintTestCase(unittest.TestCase):
                 mongo.get_collection().insert_one.assert_not_called()
 
     def test_post_entity_collection_single_entity_representation_minimal(self):
-        response = self.app.post("/Products", json=MINIMAL_PAYLOAD, headers={"Prefer": "return=minimal"})
+        response = self.app.post(
+            "/Products", json=MINIMAL_PAYLOAD, headers={"Prefer": "return=minimal"}
+        )
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
+        self.assertEqual(
+            response.headers.get("Location"), "http://localhost/Products(5)"
+        )
         self.assertEqual(response.headers.get("Preference-Applied"), "return=minimal")
         mongo.get_collection().insert_one.assert_called_once()
 
@@ -404,8 +383,12 @@ class BluePrintTestCase(unittest.TestCase):
     def test_post_entity_collection_multiple_entities(self):
         response = self.app.post("/Products", json=FULL_PAYLOAD_DEEP)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.headers.get("Location"), "http://localhost/Products(5)")
-        self.assertEqual(response.headers.get("Preference-Applied"), "return=representation")
+        self.assertEqual(
+            response.headers.get("Location"), "http://localhost/Products(5)"
+        )
+        self.assertEqual(
+            response.headers.get("Preference-Applied"), "return=representation"
+        )
         mongo.get_collection().insert_one.assert_called_once()
 
 

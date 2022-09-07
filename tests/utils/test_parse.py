@@ -1,19 +1,21 @@
 # Copyright (c) 2021-2022 Future Internet Consulting and Development Solutions S.L.
 
-from datetime import datetime, timezone
 import math
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import werkzeug
 
 from odata_server.utils.parse import (
-    ODataGrammar, parse_key_predicate, parse_orderby, parse_primitive_literal
+    ODataGrammar,
+    parse_key_predicate,
+    parse_orderby,
+    parse_primitive_literal,
 )
 
 
 class ParseUtilsTestCase(unittest.TestCase):
-
     def test_parse_primitive_literal(self):
         test_data = (
             ("sbyteValue", "-5", -5),
@@ -36,7 +38,11 @@ class ParseUtilsTestCase(unittest.TestCase):
             ("booleanValue", "true", True),
             ("nullValue", "null", None),
             ("string", "'hello'", "hello"),
-            ("dateTimeOffsetValueInUrl", "2021-10-20T10:00:00.000Z", datetime(2021, 10, 20, 10, 0, tzinfo=timezone.utc)),
+            (
+                "dateTimeOffsetValueInUrl",
+                "2021-10-20T10:00:00.000Z",
+                datetime(2021, 10, 20, 10, 0, tzinfo=timezone.utc),
+            ),
             ("dateValue", "2021-10-20", "2021-10-20"),
         )
 
@@ -98,11 +104,11 @@ class ParseUtilsTestCase(unittest.TestCase):
         )
         for predicate, expected in test_data:
             with self.subTest(predicate=predicate):
-                EntityType = Mock(
-                    key_properties=("ID",)
-                )
+                EntityType = Mock(key_properties=("ID",))
                 key_predicate = ODataGrammar("keyPredicate").parse_all(predicate)
-                self.assertEqual(parse_key_predicate(EntityType, key_predicate), expected)
+                self.assertEqual(
+                    parse_key_predicate(EntityType, key_predicate), expected
+                )
 
     def test_parse_key_predicate_compound_key_property(self):
         test_data = (
@@ -111,11 +117,11 @@ class ParseUtilsTestCase(unittest.TestCase):
         )
         for predicate, expected in test_data:
             with self.subTest(predicate=predicate):
-                EntityType = Mock(
-                    key_properties=("Prop1", "Prop2")
-                )
+                EntityType = Mock(key_properties=("Prop1", "Prop2"))
                 key_predicate = ODataGrammar("keyPredicate").parse_all(predicate)
-                self.assertEqual(parse_key_predicate(EntityType, key_predicate), expected)
+                self.assertEqual(
+                    parse_key_predicate(EntityType, key_predicate), expected
+                )
 
     def test_parse_key_predicate_errors(self):
         test_data = (
@@ -128,14 +134,14 @@ class ParseUtilsTestCase(unittest.TestCase):
         )
         for predicate, compound in test_data:
             with self.subTest(predicate=predicate):
-                EntityType = Mock(
-                    key_properties=["ID"]
-                )
+                EntityType = Mock(key_properties=["ID"])
                 if compound:
                     EntityType.key_properties.append("Prop2")
 
                 key_predicate = ODataGrammar("keyPredicate").parse_all(predicate)
-                self.assertRaises(Exception, parse_key_predicate, EntityType, key_predicate)
+                self.assertRaises(
+                    Exception, parse_key_predicate, EntityType, key_predicate
+                )
 
     def test_parse_orderby(self):
         test_data = (

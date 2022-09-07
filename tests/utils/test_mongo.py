@@ -5,7 +5,6 @@ import unittest
 from odata_server import edm
 from odata_server.utils.mongo import build_initial_projection, get_mongo_prefix
 
-
 ENTITY_TYPE_1 = {
     "Name": "Product",
     "Key": [
@@ -20,7 +19,6 @@ ENTITY_TYPE_1 = {
 
 
 class MongoUtilsTestCase(unittest.TestCase):
-
     def test_build_initial_projection(self):
         test_data = (
             (
@@ -37,7 +35,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "price": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -53,7 +51,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "products.price": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -69,7 +67,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "price": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -83,7 +81,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "description": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -98,7 +96,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "description": 1,
                     },
                     ["ID"],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -112,7 +110,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "products.description": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -127,7 +125,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "products.price": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -142,7 +140,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "products.price": 1,
                     },
                     [],
-                )
+                ),
             ),
             (
                 ENTITY_TYPE_1,
@@ -157,7 +155,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "products.description": 1,
                     },
                     ["ID"],
-                )
+                ),
             ),
         )
         for entity_type, select, prefix, anonymous, expected_result in test_data:
@@ -165,26 +163,36 @@ class MongoUtilsTestCase(unittest.TestCase):
                 entity_type = edm.EntityType(entity_type)
                 edm.process_entity_type(entity_type)
 
-                projection = build_initial_projection(entity_type, select=select, prefix=prefix, anonymous=anonymous)
+                projection = build_initial_projection(
+                    entity_type, select=select, prefix=prefix, anonymous=anonymous
+                )
 
                 self.assertEqual(projection, expected_result)
 
     def test_get_mongo_prefix(self):
-        List = edm.EntityType({
-            "Name": "List",
-        })
-        Product = edm.EntityType({
-            "Name": "Product",
-        })
-        NavigationProperty = edm.NavigationProperty({
-            "Name": "products",
-            "Type": "Product",
-        })
+        List = edm.EntityType(
+            {
+                "Name": "List",
+            }
+        )
+        Product = edm.EntityType(
+            {
+                "Name": "Product",
+            }
+        )
+        NavigationProperty = edm.NavigationProperty(
+            {
+                "Name": "products",
+                "Type": "Product",
+            }
+        )
         NavigationProperty.entity_type = Product
-        RootEntitySet = edm.EntitySet({
-            "Name": "List",
-            "EntityType": "List",
-        })
+        RootEntitySet = edm.EntitySet(
+            {
+                "Name": "List",
+                "EntityType": "List",
+            }
+        )
         RootEntitySet.entity_type = List
 
         test_data = (

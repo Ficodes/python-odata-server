@@ -1,14 +1,13 @@
 # Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 import importlib
-from typing import Optional
 import xml.etree.cElementTree as ET
+from typing import Optional
 
 from odata_server import meta
 
 
 class EdmItemBase(type):
-
     def __new__(cls, name, bases, attrs, **kwargs):
         prefix = attrs.pop("prefix", None)
         defaultsubkind = attrs.pop("defaultsubkind", None)
@@ -20,18 +19,29 @@ class EdmItemBase(type):
         new_class._attrs = {}
         for base in bases:
             new_class._attrs.update(base._attrs)
-        new_class._attrs.update({attr_name: attr for attr_name, attr in attrs.items() if isinstance(attr, meta.attribute)})
-        new_class._xml_tag = "{}:{}".format(prefix, class_name) if prefix is not None else class_name
+        new_class._attrs.update(
+            {
+                attr_name: attr
+                for attr_name, attr in attrs.items()
+                if isinstance(attr, meta.attribute)
+            }
+        )
+        new_class._xml_tag = (
+            "{}:{}".format(prefix, class_name) if prefix is not None else class_name
+        )
         new_class._namespaces = namespaces
         new_class._defaultsubkind = defaultsubkind
         attr_list = tuple(new_class._attrs.items())
-        new_class._wrapped_element = attr_list[0][0] if len(attr_list) == 1 and attr_list[0][1].type == list else None
+        new_class._wrapped_element = (
+            attr_list[0][0]
+            if len(attr_list) == 1 and attr_list[0][1].type == list
+            else None
+        )
 
         return new_class
 
 
 class EdmItem(metaclass=EdmItemBase):
-
     def __init__(self, definition: dict, parent: Optional[EdmItemBase] = None):
         self.parent = parent
 
@@ -57,7 +67,9 @@ class EdmItem(metaclass=EdmItemBase):
         root = ET.Element(self.__class__._xml_tag)
 
         for ns_prefix, ns_uri in self.__class__._namespaces.items():
-            root.set("xmlns:{}".format(ns_prefix) if ns_prefix != "" else "xmlns", ns_uri)
+            root.set(
+                "xmlns:{}".format(ns_prefix) if ns_prefix != "" else "xmlns", ns_uri
+            )
 
         for attr_name, attr in self.__class__._attrs.items():
             if attr.version > version:
@@ -126,7 +138,11 @@ class EdmItem(metaclass=EdmItemBase):
                         key, avalue = e.json()
                         data[key] = avalue
                 elif issubclass(attr.items, EdmItem):
-                    subkind = attr.items.__name__ if attr.items.__name__ != self.__class__._defaultsubkind else None
+                    subkind = (
+                        attr.items.__name__
+                        if attr.items.__name__ != self.__class__._defaultsubkind
+                        else None
+                    )
                     key = "${}".format(attr.items.jsonkey)
                     for e in value:
                         subvalue = e.json()
@@ -136,7 +152,9 @@ class EdmItem(metaclass=EdmItemBase):
                         if key in subvalue:
                             del subvalue[key]
                         data[key_value] = subvalue
-            elif value is not None and (attr.json_default is None or value != attr.json_default):
+            elif value is not None and (
+                attr.json_default is None or value != attr.json_default
+            ):
                 data[final_attr_name] = value
 
         return data
@@ -146,7 +164,9 @@ class Null(EdmItem):
 
     Annotations = meta.element(list, items="Annotation")
 
-    def __init__(self, annotations: Optional[list] = None, parent: Optional[EdmItemBase] = None):
+    def __init__(
+        self, annotations: Optional[list] = None, parent: Optional[EdmItemBase] = None
+    ):
         self.parent = parent
 
         if annotations is None:
@@ -208,8 +228,27 @@ class ValueExpressionItem(EdmItem):
     Collection = meta.element("Collection")
     Record = meta.element("Record")
 
-    all_types = ("String", "Integer", "Decimal", "Bool", "EnumMember", "PropertyPath", "Path", "Collection", "Record", "Null")
-    attr_types = ("String", "Integer", "Decimal", "Bool", "EnumMember", "PropertyPath", "Path")
+    all_types = (
+        "String",
+        "Integer",
+        "Decimal",
+        "Bool",
+        "EnumMember",
+        "PropertyPath",
+        "Path",
+        "Collection",
+        "Record",
+        "Null",
+    )
+    attr_types = (
+        "String",
+        "Integer",
+        "Decimal",
+        "Bool",
+        "EnumMember",
+        "PropertyPath",
+        "Path",
+    )
     _type = None
 
     @property
@@ -273,10 +312,7 @@ class Record(EdmItem):
 
     @property
     def value(self):
-        return {
-            p.Property: p.value
-            for p in self.PropertyValues
-        }
+        return {p.Property: p.value for p in self.PropertyValues}
 
     def json(self):
         result = {}
@@ -340,7 +376,9 @@ class Property(EdmItem):
 
     Name = meta.attribute(str, required=True)
     Type = meta.attribute(str, json_default="Edm.String")
-    Nullable = meta.attribute(bool, default=False, json_default=False, xml_default=meta.NODEFAULT)
+    Nullable = meta.attribute(
+        bool, default=False, json_default=False, xml_default=meta.NODEFAULT
+    )
     MaxLength = meta.attribute(int)
     Precision = meta.attribute(float)
     Scale = meta.attribute(float)
@@ -516,9 +554,7 @@ class Reference(EdmItem):
     Includes = meta.element(list, items=Include)
 
     def json(self):
-        return [
-            include.json() for include in self.Includes
-        ]
+        return [include.json() for include in self.Includes]
 
 
 def get_annotation(item, annotation, default=""):
@@ -549,9 +585,7 @@ def set_annotation_default_value(item, annotation, value):
 
 
 def process_annotations(element):
-    element.annotations = {
-        a.Term: a for a in element.Annotations
-    }
+    element.annotations = {a.Term: a for a in element.Annotations}
 
 
 def process_entity_type(entity_type, schema=None):
@@ -571,9 +605,7 @@ def process_entity_type(entity_type, schema=None):
         entity_type.names = entity_type.Name
 
     # Structural properties
-    entity_type.properties = {
-        t.Name: t for t in entity_type.Properties
-    }
+    entity_type.properties = {t.Name: t for t in entity_type.Properties}
     entity_type.property_list = tuple(entity_type.properties.values())
     entity_type.computed_properties = set()
     entity_type.nullable_properties = set()
@@ -587,16 +619,20 @@ def process_entity_type(entity_type, schema=None):
             entity_type.nullable_properties.add(prop.Name)
 
     # Navigation properties
-    entity_type.navproperties = {
-        t.Name: t for t in entity_type.NavigationProperties
-    }
+    entity_type.navproperties = {t.Name: t for t in entity_type.NavigationProperties}
     virtual_entities = set()
     for navigation_property in entity_type.NavigationProperties:
-        type_name = navigation_property.Type[11:-1] if navigation_property.iscollection else navigation_property.Type
+        type_name = (
+            navigation_property.Type[11:-1]
+            if navigation_property.iscollection
+            else navigation_property.Type
+        )
         type_name = type_name.rsplit(".", 1)[1]
         navigation_property.entity_type = schema.entity_types_by_id[type_name]
         process_annotations(navigation_property)
-        navigation_property.isembedded = pop_annotation(navigation_property, "PythonODataServer.Embedded", False)
+        navigation_property.isembedded = pop_annotation(
+            navigation_property, "PythonODataServer.Embedded", False
+        )
         if navigation_property.isembedded:
             virtual_entities.add(navigation_property.Name)
     entity_type.virtual_entities = virtual_entities
@@ -604,9 +640,13 @@ def process_entity_type(entity_type, schema=None):
     if entity_type.key_properties is not None:
         for key_prop in entity_type.key_properties:
             if key_prop not in entity_type.properties:
-                raise ValueError(f"Entity Type {entity_type.Name} is missing key property: {key_prop}")
+                raise ValueError(
+                    f"Entity Type {entity_type.Name} is missing key property: {key_prop}"
+                )
             elif entity_type.properties[key_prop].Nullable:
-                raise ValueError(f"Entity Type {entity_type.Name} has a nullable key property: {key_prop}")
+                raise ValueError(
+                    f"Entity Type {entity_type.Name} has a nullable key property: {key_prop}"
+                )
 
 
 class Edmx(EdmItem):
@@ -623,7 +663,9 @@ class Edmx(EdmItem):
 
     def get_entity_type(self, type):
         for schema in self.DataServices.Schemas:
-            if not type.startswith(schema.Namespace) and (schema.Alias is None or not type.startswith(schema.Alias)):
+            if not type.startswith(schema.Namespace) and (
+                schema.Alias is None or not type.startswith(schema.Alias)
+            ):
                 continue
 
             for entity_type in schema.EntityTypes:
@@ -639,25 +681,32 @@ class Edmx(EdmItem):
                 for entity_set in container.EntitySets:
                     if type(entity_set.custom_insert_business) == str:
                         module, func = entity_set.custom_insert_business.rsplit(".", 1)
-                        entity_set.custom_insert_business = getattr(importlib.import_module(module), func)
+                        entity_set.custom_insert_business = getattr(
+                            importlib.import_module(module), func
+                        )
 
     def process(self):
         for schema in self.DataServices.Schemas:
-            schema.entity_types_by_id = {
-                e.Name: e
-                for e in schema.EntityTypes
-            }
+            schema.entity_types_by_id = {e.Name: e for e in schema.EntityTypes}
 
             for entity_type in schema.EntityTypes:
                 process_entity_type(entity_type, schema)
 
             for container in schema.EntityContainers:
-                container.Annotations.append(Annotation({"Term": "Org.OData.Core.V1.ODataVersions", "String": "4.0"}))
-                container.Annotations.append(Annotation({"Term": "Org.OData.Capabilities.V1.ConformanceLevel", "EnumMember": "Org.OData.Capabilities.V1.ConformanceLevelType/Minimal"}))
-                container.entity_sets_by_id = {
-                    s.Name: s
-                    for s in container.EntitySets
-                }
+                container.Annotations.append(
+                    Annotation(
+                        {"Term": "Org.OData.Core.V1.ODataVersions", "String": "4.0"}
+                    )
+                )
+                container.Annotations.append(
+                    Annotation(
+                        {
+                            "Term": "Org.OData.Capabilities.V1.ConformanceLevel",
+                            "EnumMember": "Org.OData.Capabilities.V1.ConformanceLevelType/Minimal",
+                        }
+                    )
+                )
+                container.entity_sets_by_id = {s.Name: s for s in container.EntitySets}
 
                 for entity_set in container.EntitySets:
                     process_annotations(entity_set)
@@ -667,15 +716,29 @@ class Edmx(EdmItem):
                     }
                     entity_set.entity_type = self.get_entity_type(entity_set.EntityType)
 
-                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.TopSupported", True)
-                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.SkipSupported", True)
-                    set_annotation_default_value(entity_set, "Org.OData.Capabilities.V1.IndexableByKey", True)
+                    set_annotation_default_value(
+                        entity_set, "Org.OData.Capabilities.V1.TopSupported", True
+                    )
+                    set_annotation_default_value(
+                        entity_set, "Org.OData.Capabilities.V1.SkipSupported", True
+                    )
+                    set_annotation_default_value(
+                        entity_set, "Org.OData.Capabilities.V1.IndexableByKey", True
+                    )
 
                     # Mongo collection to use
-                    entity_set.mongo_collection = pop_annotation(entity_set, "PythonODataServer.MongoCollection", entity_set.Name.lower())
+                    entity_set.mongo_collection = pop_annotation(
+                        entity_set,
+                        "PythonODataServer.MongoCollection",
+                        entity_set.Name.lower(),
+                    )
 
                     # Mongo sub-document prefix to use
-                    entity_set.prefix = pop_annotation(entity_set, "PythonODataServer.MongoPrefix")
+                    entity_set.prefix = pop_annotation(
+                        entity_set, "PythonODataServer.MongoPrefix"
+                    )
 
                     # Custom business logic
-                    entity_set.custom_insert_business = pop_annotation(entity_set, "PythonODataServer.CustomInsertBusinessLogic", None)
+                    entity_set.custom_insert_business = pop_annotation(
+                        entity_set, "PythonODataServer.CustomInsertBusinessLogic", None
+                    )

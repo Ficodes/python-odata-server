@@ -5,7 +5,6 @@ from urllib.parse import unquote
 
 from odata_server import edm
 
-
 COMMA_RE = re.compile(r"\s*,\s*")
 
 
@@ -47,7 +46,11 @@ def build_initial_projection(entity_type, select="", prefix="", anonymous=True):
 
 def get_mongo_prefix(RootEntitySet, subject, seq=None):
     if isinstance(subject, edm.NavigationProperty):
-        prefix = subject.Name if subject.isembedded and subject.entity_type != RootEntitySet.entity_type else ""
+        prefix = (
+            subject.Name
+            if subject.isembedded and subject.entity_type != RootEntitySet.entity_type
+            else ""
+        )
         if RootEntitySet.prefix != "" and prefix != "":
             prefix = f"{RootEntitySet.prefix}.{prefix}"
         elif RootEntitySet.prefix != "" and prefix == "":

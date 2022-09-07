@@ -2,8 +2,8 @@
 
 import datetime
 import json
-from urllib.parse import urlencode
 import uuid
+from urllib.parse import urlencode
 
 from flask import request, url_for
 
@@ -22,11 +22,11 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(o, datetime.datetime):
             if o.tzinfo:
                 # eg: '2015-09-25T23:14:42.588601+00:00'
-                return o.isoformat('T')
+                return o.isoformat("T")
             else:
                 # No timezone present - assume UTC.
                 # eg: '2015-09-25T23:14:42.588601Z'
-                return o.isoformat('T') + 'Z'
+                return o.isoformat("T") + "Z"
 
         if isinstance(o, datetime.date):
             return o.isoformat()
@@ -37,7 +37,15 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def generate_collection_response(results, offset, page_limit, prepare, odata_context, odata_count=None, prepare_kwargs={}):
+def generate_collection_response(
+    results,
+    offset,
+    page_limit,
+    prepare,
+    odata_context,
+    odata_count=None,
+    prepare_kwargs={},
+):
 
     yield b'{"@odata.context": "%s"' % odata_context.encode("utf-8")
 
@@ -50,18 +58,22 @@ def generate_collection_response(results, offset, page_limit, prepare, odata_con
     try:
         result = next(results)
         data = prepare(result, **prepare_kwargs)
-        yield json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode("utf-8") + b'\n'
+        yield json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode(
+            "utf-8"
+        ) + b"\n"
         pending_iterations -= 1
 
         while pending_iterations > 0:
             result = next(results)
             data = prepare(result, **prepare_kwargs)
-            yield b',' + json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode("utf-8") + b'\n'
+            yield b"," + json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode(
+                "utf-8"
+            ) + b"\n"
             pending_iterations -= 1
     except StopIteration:
         pass
 
-    yield b']'
+    yield b"]"
 
     if pending_iterations == 0:
         try:
@@ -77,8 +89,7 @@ def generate_collection_response(results, offset, page_limit, prepare, odata_con
 
         odata_next_link = b"%(path)s?%(params)s" % {
             b"path": url_for(
-                "odata.{}".format(prepare_kwargs["RootEntitySet"].Name),
-                _external=True
+                "odata.{}".format(prepare_kwargs["RootEntitySet"].Name), _external=True
             ).encode("utf-8"),
             b"params": urlencode(query_params).encode("utf-8"),
         }

@@ -8,11 +8,13 @@ from urllib.parse import unquote
 
 import abnf
 import arrow
+
 # TODO depend on a generic abort method
 from flask import abort
 
-
-STRIP_WHITESPACE_FROM_URLENCODED_RE = re.compile(r"(?:^(?:[ \t]|%20|%09)+|(?:[ \t]|%20|%09)+$)")
+STRIP_WHITESPACE_FROM_URLENCODED_RE = re.compile(
+    r"(?:^(?:[ \t]|%20|%09)+|(?:[ \t]|%20|%09)+$)"
+)
 
 
 class ODataGrammar(abnf.Rule):
@@ -20,7 +22,9 @@ class ODataGrammar(abnf.Rule):
     ParserError = abnf.parser.ParseError
 
 
-ODataGrammar.from_file(os.path.join(os.path.dirname(__file__), "..", "data", "odata.abnf"))
+ODataGrammar.from_file(
+    os.path.join(os.path.dirname(__file__), "..", "data", "odata.abnf")
+)
 
 
 def parse_array_or_object(node):
@@ -35,7 +39,14 @@ def parse_primitive_literal(node):
         return unquote(value)[1:-1].replace("''", "'")
     elif value_type == "nullValue":
         return None
-    elif value_type in ("booleanValue", "sbyteValue", "byteValue", "int16Value", "int32Value", "int64Value"):
+    elif value_type in (
+        "booleanValue",
+        "sbyteValue",
+        "byteValue",
+        "int16Value",
+        "int32Value",
+        "int64Value",
+    ):
         return json.loads(value)
     elif value_type in ("decimalValue", "doubleValue", "singleValue"):
         return float(value)
@@ -80,12 +91,20 @@ def parse_key_predicate(EntityType, key_predicate):
                 if key_id in EntityType.key_properties:
                     abort(400, "Duplicated key value for {}".format(key_id))
                 else:
-                    abort(400, "{} does not use {} as key property".format(EntityType.Name, key_id))
+                    abort(
+                        400,
+                        "{} does not use {} as key property".format(
+                            EntityType.Name, key_id
+                        ),
+                    )
 
             key[key_id] = parse_key_value(keypair.children[2])
 
         if len(key_properties) > 0:
-            abort(400, "The following key properties are missing: {}".format(key_properties))
+            abort(
+                400,
+                "The following key properties are missing: {}".format(key_properties),
+            )
 
         return key
     else:
@@ -104,7 +123,9 @@ def parse_qs(qs):
 
         name = unquote(nv[0].replace(b"+", b" ").decode("utf-8"))
         # Extra feature not required by OData spec: strip whitespace from get parameters
-        value = STRIP_WHITESPACE_FROM_URLENCODED_RE.sub("", nv[1].replace(b"+", b" ").decode("utf-8"))
+        value = STRIP_WHITESPACE_FROM_URLENCODED_RE.sub(
+            "", nv[1].replace(b"+", b" ").decode("utf-8")
+        )
         aslist.append((name, value))
         asdict[name] = value
 
@@ -121,9 +142,12 @@ def parse_orderby(orderby_value):
         return [
             (
                 entry.children[0].value,
-                1 if len(entry.children) == 1 or entry.children[2].value.lower() == "asc" else -1
+                1
+                if len(entry.children) == 1 or entry.children[2].value.lower() == "asc"
+                else -1,
             )
-            for entry in tree.children if entry.name == "orderbyItem"
+            for entry in tree.children
+            if entry.name == "orderbyItem"
         ]
 
     return []

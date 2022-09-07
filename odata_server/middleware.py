@@ -6,15 +6,9 @@ class HTTPMethodOverrideMiddleware(object):
     https://flask.palletsprojects.com/en/2.0.x/patterns/methodoverrides/
     """
 
-    allowed_methods = frozenset([
-        "GET",
-        "HEAD",
-        "POST",
-        "DELETE",
-        "PUT",
-        "PATCH",
-        "OPTIONS"
-    ])
+    allowed_methods = frozenset(
+        ["GET", "HEAD", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"]
+    )
     bodyless_methods = frozenset(["GET", "HEAD", "OPTIONS", "DELETE"])
 
     def __init__(self, app):

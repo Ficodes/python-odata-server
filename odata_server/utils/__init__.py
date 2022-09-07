@@ -7,16 +7,19 @@ from bson.son import SON
 from flask import abort, request, url_for
 
 from odata_server import edm
+
 from .common import crop_result, format_key_predicate
 from .flask import add_odata_annotations
 from .http import build_response_headers, make_response
 from .json import generate_collection_response
 from .mongo import build_initial_projection, get_mongo_prefix
 from .parse import (
-    ODataGrammar, parse_array_or_object, parse_primitive_literal,
-    parse_orderby, parse_qs
+    ODataGrammar,
+    parse_array_or_object,
+    parse_orderby,
+    parse_primitive_literal,
+    parse_qs,
 )
-
 
 EXPR_MAPPING = {
     "eqExpr": "$eq",
@@ -38,14 +41,22 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
         if len(tree.children) == 1:
             tree = tree.children[0].children[2]
         elif len(tree.children) == 2 and tree.children[1].name in ("orExpr", "andExpr"):
-            process_common_expr(tree.children[0].children[2], filters, entity_type, prefix)
+            process_common_expr(
+                tree.children[0].children[2], filters, entity_type, prefix
+            )
 
             if tree.children[1].name == "andExpr" and len(filters) > 1:
                 or_filters = filters.copy()
                 filters.clear()
                 filters.append({"$or": or_filters})
 
-            return process_common_expr(tree.children[1].children[3].children[0], filters, entity_type, prefix, tree.children[1].name)
+            return process_common_expr(
+                tree.children[1].children[3].children[0],
+                filters,
+                entity_type,
+                prefix,
+                tree.children[1].name,
+            )
         else:
             abort(501)
 
@@ -92,9 +103,16 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             current_filter[mongo_op] = value
 
         lastNode = expr.children[-1]
-    elif expresion_name == "methodCallExpr" and tree.children[0].children[0].name == "boolMethodCallExpr":
+    elif (
+        expresion_name == "methodCallExpr"
+        and tree.children[0].children[0].name == "boolMethodCallExpr"
+    ):
         methodExpr = tree.children[0].children[0].children[0]
-        args = [node.children[0] for node in methodExpr.children[2:-1] if node.name == "commonExpr"]
+        args = [
+            node.children[0]
+            for node in methodExpr.children[2:-1]
+            if node.name == "commonExpr"
+        ]
         prop_name = args[0].value
         if prefix != "" and prop_name not in entity_type.key_properties:
             field = "{}.{}".format(prefix, prop_name)
@@ -110,11 +128,17 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             else:  # if tree.name = "commonExpr":
                 negation = tree.children[0].value != "true"
 
-        if methodExpr.name in ("containsMethodCallExpr", "startsWithMethodCallExpr", "endsWithMethodCallExpr"):
+        if methodExpr.name in (
+            "containsMethodCallExpr",
+            "startsWithMethodCallExpr",
+            "endsWithMethodCallExpr",
+        ):
             regex_literal = re.escape(parse_primitive_literal(args[1].children[0]))
             if methodExpr.name == "containsMethodCallExpr":
                 filters[-1][field] = {
-                    "$regex": "(?!{})".format(regex_literal) if negation else regex_literal
+                    "$regex": "(?!{})".format(regex_literal)
+                    if negation
+                    else regex_literal
                 }
             elif methodExpr.name == "startsWithMethodCallExpr":
                 filters[-1][field] = {
@@ -127,7 +151,10 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
         elif methodExpr.name == "hasSubsetMethodCallExpr":
             # args[1] is always a commonExpr node
             second_argument = args[1]
-            if second_argument.name != "arrayOrObject" or second_argument.children[0].name != "array":
+            if (
+                second_argument.name != "arrayOrObject"
+                or second_argument.children[0].name != "array"
+            ):
                 abort(400, "hasubset: Second argument must be a collection")
 
             subset = parse_array_or_object(second_argument)
@@ -146,7 +173,7 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             filters,
             entity_type,
             prefix,
-            lastNode.name
+            lastNode.name,
         )
 
 
@@ -182,7 +209,9 @@ def process_expand_tree(EntityType, nodes):
             abort(501)
 
         if item.value == "*":
-            expand_properties.update({np: None for np in EntityType.navproperties.keys()})
+            expand_properties.update(
+                {np: None for np in EntityType.navproperties.keys()}
+            )
         elif item.children[0].name == "streamProperty":
             navprop = item.children[0].value
             if navprop not in EntityType.navproperties:
@@ -190,7 +219,11 @@ def process_expand_tree(EntityType, nodes):
 
             expand_properties[navprop] = None
         elif item.children[0].name == "navigationProperty":
-            if len(item.children) != 4 or item.children[2].name != "expandOption" or item.children[2].children[0].name != "expand":
+            if (
+                len(item.children) != 4
+                or item.children[2].name != "expandOption"
+                or item.children[2].children[0].name != "expand"
+            ):
                 abort(501)
 
             navprop = item.children[0].value
@@ -199,8 +232,7 @@ def process_expand_tree(EntityType, nodes):
 
             refEntityType = EntityType.navproperties[navprop].entity_type
             expand_properties[navprop] = process_expand_tree(
-                refEntityType,
-                item.children[2].children[0].children[2:]
+                refEntityType, item.children[2].children[0].children[2:]
             )
         else:
             abort(501)
@@ -213,7 +245,9 @@ def process_expand_fields(EntitySet, EntityType, expand_value, projection, prefi
 
     if expand_arg != "":
         try:
-            expand_tree = ODataGrammar("expand").parse_all("$expand={}".format(expand_arg))
+            expand_tree = ODataGrammar("expand").parse_all(
+                "$expand={}".format(expand_arg)
+            )
         except abnf.parser.ParseError:
             abort(400)
 
@@ -221,10 +255,14 @@ def process_expand_fields(EntitySet, EntityType, expand_value, projection, prefi
     else:
         expand_properties = ()
 
-    return process_expand_details(EntitySet, EntityType, expand_properties, projection, prefix=prefix)
+    return process_expand_details(
+        EntitySet, EntityType, expand_properties, projection, prefix=prefix
+    )
 
 
-def process_expand_details(EntitySet, EntityType, expand_properties, projection, prefix=""):
+def process_expand_details(
+    EntitySet, EntityType, expand_properties, projection, prefix=""
+):
     virtual_entities = EntityType.virtual_entities
     expand_details = {
         "key_props": EntityType.key_properties,
@@ -239,13 +277,17 @@ def process_expand_details(EntitySet, EntityType, expand_properties, projection,
         binding = EntitySet.bindings.get(prop)
         subtype = EntityType.navproperties[prop].entity_type
         path = "{}.{}".format(prefix, prop) if prefix != "" else prop
-        extra_details = process_expand_details(
-            binding if binding is not None else EntitySet,
-            subtype,
-            extra,
-            projection,
-            path if prop in virtual_entities else ""
-        ) if extra else None
+        extra_details = (
+            process_expand_details(
+                binding if binding is not None else EntitySet,
+                subtype,
+                extra,
+                projection,
+                path if prop in virtual_entities else "",
+            )
+            if extra
+            else None
+        )
 
         if prop in virtual_entities:
             subproperties = subtype.Properties
@@ -263,9 +305,13 @@ def process_expand_details(EntitySet, EntityType, expand_properties, projection,
                         projection["{}.{}".format(path, subprop.Name)] = 1
 
             if EntityType.navproperties[prop].iscollection:
-                expand_details["virtual"]["collection"].append((prop, binding, extra_details))
+                expand_details["virtual"]["collection"].append(
+                    (prop, binding, extra_details)
+                )
             else:
-                expand_details["virtual"]["single"].append((prop, binding, extra_details))
+                expand_details["virtual"]["single"].append(
+                    (prop, binding, extra_details)
+                )
         else:
             expand_details["entities_to_query"].add((prop, binding, extra_details))
 
@@ -275,7 +321,8 @@ def process_expand_details(EntitySet, EntityType, expand_properties, projection,
 def expand_result(EntitySet, expand_details, result, prefix=""):
     main_id = {
         key_prop: result[key_prop]
-        for key_prop in expand_details["key_props"] if key_prop != "Seq"
+        for key_prop in expand_details["key_props"]
+        if key_prop != "Seq"
     }
     for prop, binding, extra in expand_details["virtual"]["single"]:
         if result.get(prop) is None:
@@ -289,7 +336,9 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
         else:
             keyPredicate = format_key_predicate(main_id)
             anchor = "{}({})/{}".format(EntitySet.Name, keyPredicate, path)
-            result["{}@odata.context".format(prop)] = "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor)
+            result["{}@odata.context".format(prop)] = "{}#{}".format(
+                url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor
+            )
             if extra:
                 expand_result(EntitySet, extra, result[prop], prefix=path)
 
@@ -301,7 +350,9 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
         if binding is None:
             keyPredicate = format_key_predicate(main_id)
             anchor = "{}({})/{}".format(EntitySet.Name, keyPredicate, path)
-            result["{}@odata.context".format(prop)] = "{}#{}".format(url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor)
+            result["{}@odata.context".format(prop)] = "{}#{}".format(
+                url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor
+            )
 
         for i, e in enumerate(result[prop]):
             if binding is not None:
@@ -316,9 +367,13 @@ def expand_result(EntitySet, expand_details, result, prefix=""):
     return result
 
 
-def prepare_entity_set_result(result, RootEntitySet, expand_details, prefix, fields_to_remove):
+def prepare_entity_set_result(
+    result, RootEntitySet, expand_details, prefix, fields_to_remove
+):
     croped_result = crop_result(result, prefix)
-    expanded_result = expand_result(RootEntitySet, expand_details, croped_result, prefix=prefix)
+    expanded_result = expand_result(
+        RootEntitySet, expand_details, croped_result, prefix=prefix
+    )
     annotated_result = add_odata_annotations(expanded_result, RootEntitySet)
     for field in fields_to_remove:
         del annotated_result[field]
@@ -338,9 +393,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     # Parse basic options
     if filters is None:
         # TODO allow to customize this filter
-        filters = {
-            "uuid": {"$exists": True}
-        }
+        filters = {"uuid": {"$exists": True}}
 
     top = qs.get("$top")
     page_limit = int(top) if top is not None else prefers["maxpagesize"]
@@ -351,15 +404,25 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     prefix = get_mongo_prefix(RootEntitySet, subject)
 
     select = qs.get("$select", "")
-    projection, fields_to_remove = build_initial_projection(subject.entity_type, select, prefix=prefix, anonymous=anonymous)
+    projection, fields_to_remove = build_initial_projection(
+        subject.entity_type, select, prefix=prefix, anonymous=anonymous
+    )
 
     # Process filters
     filter_arg = qs.get("$filter", "")
     search_arg = qs.get("$search", "")
-    filters = process_collection_filters(filter_arg, search_arg, filters, subject.entity_type, prefix=prefix)
+    filters = process_collection_filters(
+        filter_arg, search_arg, filters, subject.entity_type, prefix=prefix
+    )
 
     # Process expand fields
-    expand_details = process_expand_fields(RootEntitySet, subject.entity_type, qs.get("$expand", ""), projection, prefix=prefix)
+    expand_details = process_expand_fields(
+        RootEntitySet,
+        subject.entity_type,
+        qs.get("$expand", ""),
+        projection,
+        prefix=prefix,
+    )
 
     # Process orderby
     orderby = parse_orderby(qs.get("$orderby", ""))
@@ -372,12 +435,9 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
             {"$match": filters},
         ]
         if "Seq" in subject.entity_type.key_properties:
-            pipeline.append({
-                "$unwind": {
-                    "path": "${}".format(prefix),
-                    "includeArrayIndex": "Seq"
-                }
-            })
+            pipeline.append(
+                {"$unwind": {"path": "${}".format(prefix), "includeArrayIndex": "Seq"}}
+            )
         else:
             pipeline.append({"$unwind": "${}".format(prefix)})
 
@@ -412,7 +472,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
 
     odata_context = "{}#{}".format(
         url_for("odata.$metadata", _external=True).replace("%24", "$"),
-        RootEntitySet.Name
+        RootEntitySet.Name,
     )
     prepare_kwargs = {
         "RootEntitySet": RootEntitySet,
@@ -427,7 +487,9 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         prepare_anonymous_result if anonymous else prepare_entity_set_result,
         odata_context,
         odata_count=odata_count,
-        prepare_kwargs=prepare_kwargs
+        prepare_kwargs=prepare_kwargs,
     )
-    headers = build_response_headers(streaming=True, maxpagesize=page_limit if top is None else None)
+    headers = build_response_headers(
+        streaming=True, maxpagesize=page_limit if top is None else None
+    )
     return make_response(data, status=200, headers=headers)
