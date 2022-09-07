@@ -1,4 +1,4 @@
-abnf
+abnf<2
 arrow
 uuid
 pymongo
