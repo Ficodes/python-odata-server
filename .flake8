@@ -5,5 +5,5 @@ max-line-length = 88
 extend-ignore =
       E501,
       BLK100,
-#     # See https://github.com/PyCQA/pycodestyle/issues/373
-#     E203,
+      # See https://github.com/PyCQA/pycodestyle/issues/373
+      E203,

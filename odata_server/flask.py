@@ -129,9 +129,11 @@ class ODataBluePrint(Blueprint):
                         entity_set.annotations[
                             "Org.OData.Core.V1.ResourcePath"
                         ] = entity_set.Annotations[-1]
+
                     resource_path = edm.get_annotation(
                         entity_set, "Org.OData.Core.V1.ResourcePath"
                     )
+                    full_resource_path = f"{state.url_prefix}/{resource_path}"
 
                     # URL rules
                     state.add_url_rule(
@@ -143,6 +145,7 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "RootEntitySet": entity_set,
+                            "base_path": full_resource_path,
                         },
                     )
                     state.add_url_rule(
@@ -176,6 +179,7 @@ class ODataBluePrint(Blueprint):
                             "edmx": edmx,
                             "mongo": mongo,
                             "RootEntitySet": entity_set,
+                            "base_path": full_resource_path,
                         },
                     )
 
@@ -402,9 +406,9 @@ def get_collection_count(edmx, mongo, EntitySet, filters=None):
     return make_response(count, status=200, headers=headers)
 
 
-def entity_set_endpoint(mongo, edmx, RootEntitySet):
+def entity_set_endpoint(mongo, edmx, RootEntitySet, base_path):
     if request.method == "GET":
-        return get_entity_set(mongo, edmx, RootEntitySet)
+        return get_entity_set(mongo, edmx, RootEntitySet, base_path=base_path)
     else:  # request.method == "POST":
         return post_entity_set(mongo, edmx, RootEntitySet, request.json)
 
@@ -586,10 +590,13 @@ def post_entity_set(mongo, edmx, EntitySet, body):
     return make_response(response_body, status=status, headers=headers)
 
 
-def get_entity_set(mongo, edmx, RootEntitySet, navigation=""):
+def get_entity_set(mongo, edmx, RootEntitySet, base_path, navigation=""):
     prefers = parse_prefer_header(request.headers.get("Prefer", ""))
 
     if navigation != "":
+        # ABNF grammar is prepared to consume raw paths
+        navigation = request.environ["RAW_URI"][len(base_path) :]
+
         try:
             tree = ODataGrammar("collectionNavPath").parse_all(navigation)
         except abnf.parser.ParseError:

@@ -201,6 +201,13 @@ class BluePrintTestCase(unittest.TestCase):
         get.assert_called_once_with(mongo, ANY, ANY, {"ID": 5}, DEFAULT_PREFERS)
 
     @patch("odata_server.flask.get")
+    def test_get_entity_api_by_id_encoded_chars(self, get):
+        get.return_value = ({}, 200)
+        response = self.app.get("/Products('%2F%3F')")
+        self.assertEqual(response.status_code, 200)
+        get.assert_called_once_with(mongo, ANY, ANY, {"ID": "/?"}, DEFAULT_PREFERS)
+
+    @patch("odata_server.flask.get")
     def test_get_entity_api_by_id_not_found(self, get):
         get.return_value = ({}, 404)
         response = self.app.get("/Products(5)")
