@@ -53,7 +53,7 @@ jobs:
       - name: Setup python dependencies
         run: |
           pip install -q -r requirements.txt
-          pip install coverage
+          pip install -q -r requirements_test.txt
       - name: Run tests
         run: |
           coverage run -m unittest
