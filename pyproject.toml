@@ -1,0 +1,13 @@
+[tool.coverage.run]
+branch = true
+source = ["."]
+omit = ["*test*"]
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:"]
+omit = ["*test*"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_firstparty = ["cttexpress"]
