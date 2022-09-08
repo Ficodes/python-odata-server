@@ -135,7 +135,7 @@ class ODataBluePrint(Blueprint):
 
                     # URL rules
                     state.add_url_rule(
-                        "/{}".format(resource_path),
+                        f"/{resource_path}",
                         view_func=entity_set_endpoint,
                         methods=collection_methods,
                         endpoint=entity_set.Name,
@@ -146,10 +146,10 @@ class ODataBluePrint(Blueprint):
                         },
                     )
                     state.add_url_rule(
-                        "/{}(<key_predicate>)".format(entity_set.Name),
+                        f"/{resource_path}(<key_predicate>)",
                         view_func=entity_set_entity_endpoint,
                         methods=entry_methods,
-                        endpoint="{}$entity".format(entity_set.Name),
+                        endpoint=f"{entity_set.Name}$entity",
                         defaults={
                             "edmx": edmx,
                             "mongo": mongo,
@@ -157,7 +157,7 @@ class ODataBluePrint(Blueprint):
                         },
                     )
                     state.add_url_rule(
-                        "/{}/$count".format(entity_set.Name),
+                        f"/{resource_path}/$count",
                         view_func=get_collection_count,
                         methods=("GET",),
                         endpoint="{}$count".format(entity_set.Name),
@@ -168,10 +168,10 @@ class ODataBluePrint(Blueprint):
                         },
                     )
                     state.add_url_rule(
-                        "/{}<path:navigation>".format(entity_set.Name),
+                        f"/{resource_path}<path:navigation>",
                         view_func=get_entity_set,
                         methods=("GET", "PATCH"),
-                        endpoint="{}#nav".format(entity_set.Name),
+                        endpoint=f"{entity_set.Name}#nav",
                         defaults={
                             "edmx": edmx,
                             "mongo": mongo,
@@ -309,7 +309,7 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
                 [
                     {
                         "$unwind": {
-                            "path": "${}".format(prefix),
+                            "path": f"${prefix}",
                             "includeArrayIndex": "Seq",
                         }
                     },
@@ -317,7 +317,7 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
                 ]
             )
         else:
-            pipeline.append({"$unwind": "${}".format(prefix)})
+            pipeline.append({"$unwind": f"${prefix}"})
 
         pipeline.append({"$limit": 1})
         results = tuple(mongo_collection.aggregate(pipeline, session=session))
@@ -341,9 +341,7 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
         del data[field]
 
     anchor = "{}/$entity".format(
-        "{}/{}".format(RootEntitySet.Name, prefix)
-        if prefix != ""
-        else RootEntitySet.Name
+        f"{RootEntitySet.Name}/{prefix}" if prefix != "" else RootEntitySet.Name
     )
     data["@odata.context"] = "{}#{}".format(
         url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor
@@ -360,9 +358,7 @@ def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
     mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
     prefix = get_mongo_prefix(RootEntitySet, Property)
 
-    mongo_field = (
-        Property.Name if prefix == "" else "{}.{}".format(prefix, Property.Name)
-    )
+    mongo_field = Property.Name if prefix == "" else f"{prefix}.{Property.Name}"
     filters = id_value.copy()
     filters["uuid"] = {"$exists": True}
     if prefix != "":
@@ -375,7 +371,7 @@ def get_property(mongo, RootEntitySet, id_value, prefers, Property, raw=False):
     data = deref_multi(data, mongo_field.split("."))
     if not raw:
         keyPredicate = format_key_predicate(id_value)
-        anchor = "{}({})/{}".format(RootEntitySet.Name, keyPredicate, Property.Name)
+        anchor = f"{RootEntitySet.Name}({keyPredicate})/{Property.Name}"
         data = {
             "@odata.context": "{}#{}".format(
                 url_for("odata.$metadata", _external=True).replace("%24", "$"), anchor

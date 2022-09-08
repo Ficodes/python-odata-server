@@ -33,7 +33,7 @@ def build_initial_projection(entity_type, select="", prefix="", anonymous=True):
         if p in entity_type.key_properties:
             projection[p] = 1
         else:
-            projection["{}{}".format(prefix, p)] = 1
+            projection[f"{prefix}{p}"] = 1
 
     if not anonymous:
         for p in entity_type.key_properties:
