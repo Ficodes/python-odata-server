@@ -439,6 +439,31 @@ class UtilsTestCase(unittest.TestCase):
                     "D": {"$eq": True},
                 },
             ),
+            (
+                "(A eq 1) and A eq 1",
+                {
+                    "A": {"$eq": 1},
+                },
+            ),
+            (
+                "(A eq 1 and B eq 3) and A eq 1",
+                {
+                    "A": {"$eq": 1},
+                    "B": {"$eq": 3},
+                },
+            ),
+            (
+                "A in (1, 2, 3, 3)",
+                {
+                    "A": {"$in": [1, 2, 3]},
+                },
+            ),
+            (
+                "A in (1, 2, 3) and A in (1, 2)",
+                {
+                    "A": {"$in": [1, 2]},
+                },
+            ),
         )
 
         for expr, expected in test_data:

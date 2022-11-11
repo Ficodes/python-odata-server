@@ -84,7 +84,7 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
 
         prop_name = tree.children[0].value
         if prefix != "" and prop_name not in entity_type.key_properties:
-            field = "{}.{}".format(prefix, prop_name)
+            field = f"{prefix}.{prop_name}"
         else:
             field = prop_name
 
@@ -97,8 +97,20 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
                 current_filter[mongo_op] = max(value, current_filter[mongo_op])
             elif expr_type in ("ltExpr", "leExpr"):
                 current_filter[mongo_op] = min(value, current_filter[mongo_op])
-            else:
-                abort(501)
+            elif expr_type in ("eqExpr", "neExpr"):
+                if current_filter[mongo_op] == value:
+                    # Ignore this clasule as is the same than the current one
+                    pass
+                else:
+                    # TODO this case will return no results as it is impossible to be
+                    # equal to two values at the same time
+                    abort(501)
+            else:  # elif expr_type == "inExpr"
+                current_filter[mongo_op] = list(
+                    set(current_filter[mongo_op]).intersection(set(value))
+                )
+        elif expr_type == "inExpr":
+            current_filter[mongo_op] = list(dict.fromkeys(value))
         else:
             current_filter[mongo_op] = value
 
