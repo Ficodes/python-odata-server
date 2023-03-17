@@ -12,6 +12,7 @@ ENTITY_TYPE_1 = {
     ],
     "Properties": [
         {"Name": "ID", "Type": "Edm.String", "Nullable": False},
+        {"Name": "name", "Type": "Edm.String", "Nullable": False},
         {"Name": "description", "Type": "Edm.String", "Nullable": False},
         {"Name": "price", "Type": "Edm.Int16", "Nullable": True},
     ],
@@ -33,6 +34,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "ID": 1,
                         "description": 1,
                         "price": 1,
+                        "name": 1,
                     },
                     [],
                 ),
@@ -49,6 +51,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "ID": 1,
                         "products.description": 1,
                         "products.price": 1,
+                        "products.name": 1,
                     },
                     [],
                 ),
@@ -65,6 +68,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                         "ID": 1,
                         "description": 1,
                         "price": 1,
+                        "name": 1,
                     },
                     [],
                 ),
@@ -157,6 +161,39 @@ class MongoUtilsTestCase(unittest.TestCase):
                     ["ID"],
                 ),
             ),
+            (
+                ENTITY_TYPE_1,
+                "description,%2C%20   ,price",
+                "products",
+                False,
+                (
+                    {
+                        "_id": 0,
+                        "uuid": 1,
+                        "ID": 1,
+                        "products.description": 1,
+                        "products.price": 1,
+                    },
+                    ["ID"],
+                ),
+            ),
+            (
+                ENTITY_TYPE_1,
+                ",%2C%20 ,",
+                "products",
+                False,
+                (
+                    {
+                        "_id": 0,
+                        "uuid": 1,
+                        "ID": 1,
+                        "products.description": 1,
+                        "products.price": 1,
+                        "products.name": 1,
+                    },
+                    [],
+                ),
+            ),
         )
         for entity_type, select, prefix, anonymous, expected_result in test_data:
             with self.subTest(select=select, prefix=prefix, anonymous=anonymous):
@@ -167,7 +204,7 @@ class MongoUtilsTestCase(unittest.TestCase):
                     entity_type, select=select, prefix=prefix, anonymous=anonymous
                 )
 
-                self.assertEqual(projection, expected_result)
+                self.assertEqual(expected_result, projection)
 
     def test_get_mongo_prefix(self):
         List = edm.EntityType(

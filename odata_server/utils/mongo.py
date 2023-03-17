@@ -27,7 +27,9 @@ def build_initial_projection(entity_type, select="", prefix="", anonymous=True):
     else:
         # TODO use abnf grammar adding support for using whitespace around
         # comma characters
-        select = COMMA_RE.split(select)
+        select = [field for field in COMMA_RE.split(select) if field != ""]
+        if len(select) == 0:
+            select = [p.Name for p in entity_type.property_list]
 
     for p in select:
         if p in entity_type.key_properties:
