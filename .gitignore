@@ -8,3 +8,4 @@ __pycache__
 coverage.xml
 *.py[co]
 *.egg-info
+.venv

@@ -117,9 +117,11 @@ class UtilsTestCase(unittest.TestCase):
                     navprop = edm.NavigationProperty(
                         {
                             "Name": prop,
-                            "Type": prop_type
-                            if prop in ("prop1", "prop2")
-                            else "Collection({})".format(prop_type),
+                            "Type": (
+                                prop_type
+                                if prop in ("prop1", "prop2")
+                                else "Collection({})".format(prop_type)
+                            ),
                         }
                     )
                     navprop.entity_type = edm.EntityType(
@@ -144,9 +146,9 @@ class UtilsTestCase(unittest.TestCase):
                             "A": navprop.entity_type.NavigationProperties[0]
                         }
                         navprop.entity_type.navproperties["A"].iscollection = False
-                        navprop.entity_type.navproperties[
-                            "A"
-                        ].entity_type = entity_set.entity_type
+                        navprop.entity_type.navproperties["A"].entity_type = (
+                            entity_set.entity_type
+                        )
                         navprop.entity_type.virtual_entities = {"A"}
                     navprop.iscollection = prop in ("prop3", "prop4")
                     entity_set.entity_type.navproperties[prop] = navprop
@@ -482,7 +484,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().find().skip().limit.return_value = iter(
+        mongo.get_collection().with_options().find().skip().limit.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -531,7 +533,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_orderby(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().find().sort().skip().limit.return_value = iter(
+        mongo.get_collection().with_options().find().sort().skip().limit.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -576,7 +578,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_count(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().find().skip().limit.return_value = iter(
+        mongo.get_collection().with_options().find().skip().limit.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -584,7 +586,7 @@ class UtilsTestCase(unittest.TestCase):
                 },
             )
         )
-        mongo.get_collection().count_documents.return_value = 1
+        mongo.get_collection().with_options().count_documents.return_value = 1
         RootEntitySet = edm.EntitySet(
             {
                 "Name": "Products",
@@ -622,7 +624,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_mongo_prefix_entity(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().aggregate.return_value = iter(
+        mongo.get_collection().with_options().aggregate.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -671,7 +673,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_mongo_prefix_entity_orderby(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().aggregate.return_value = iter(
+        mongo.get_collection().with_options().aggregate.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -720,7 +722,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_mongo_prefix_entity_seq_filter(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().aggregate.return_value = iter(
+        mongo.get_collection().with_options().aggregate.return_value = iter(
             (
                 {
                     "ID": 1,
@@ -765,7 +767,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_mongo_prefix_entity_count(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().aggregate.side_effect = (
+        mongo.get_collection().with_options().aggregate.side_effect = (
             iter(
                 (
                     {
@@ -813,7 +815,7 @@ class UtilsTestCase(unittest.TestCase):
     )
     def test_get_collection_mongo_prefix_collection(self, parse_qs):
         mongo = unittest.mock.Mock()
-        mongo.get_collection().aggregate.return_value = iter(
+        mongo.get_collection().with_options().aggregate.return_value = iter(
             (
                 {
                     "ID": 1,

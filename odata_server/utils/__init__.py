@@ -448,7 +448,11 @@ def get_collection(
     orderby = parse_orderby(qs.get("$orderby", ""))
 
     # Get the results
-    mongo_collection = db.get_collection(RootEntitySet.mongo_collection)
+    mongo_collection = db.get_collection(
+        RootEntitySet.mongo_collection,
+    ).with_options(
+        read_concern=pymongo.ReadPreference.SECONDARY_PREFERRED,
+    )
     if prefix:
         seq_filter = {"Seq": filters.pop("Seq")} if "Seq" in filters else None
         pipeline = [

@@ -252,21 +252,23 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for orderby_expr, expected in test_data:
             with self.subTest(orderby=orderby_expr):
-                mongo.get_collection().find().sort().skip().limit.return_value = iter(
+                mongo.get_collection().with_options().find().sort().skip().limit.return_value = iter(
                     ()
                 )
                 mongo.reset_mock()
                 response = self.app.get("/Products?$orderby={}".format(orderby_expr))
-                mongo.get_collection().find().max_time_ms().sort.assert_called_once_with(
+                mongo.get_collection().with_options().find().max_time_ms().sort.assert_called_once_with(
                     expected
                 )
                 self.assertEqual(response.status_code, 200)
 
     def test_get_entity_collection_api_empty_filter(self):
-        mongo.get_collection().find().skip().limit.return_value = iter(())
+        mongo.get_collection().with_options().find().skip().limit.return_value = iter(
+            ()
+        )
         mongo.reset_mock()
         response = self.app.get("/Products?$filter=")
-        mongo.get_collection().find.assert_called_once_with(
+        mongo.get_collection().with_options().find.assert_called_once_with(
             {"uuid": {"$exists": True}}, ANY
         )
         self.assertEqual(response.status_code, 200)
@@ -279,7 +281,7 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for label, filter_expr in test_data:
             with self.subTest(msg=label):
-                mongo.get_collection().find().max_time_ms().skip().limit.return_value = iter(
+                mongo.get_collection().with_options().find().max_time_ms().skip().limit.return_value = iter(
                     ()
                 )
                 response = self.app.get("/Products?$filter={}".format(filter_expr))
