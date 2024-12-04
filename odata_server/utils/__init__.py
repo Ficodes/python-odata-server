@@ -6,6 +6,7 @@ import abnf
 import pymongo.database
 from bson.son import SON
 from flask import abort, request, url_for
+from pymongo import ReadPreference
 
 from odata_server import edm, settings
 
@@ -448,7 +449,11 @@ def get_collection(
     orderby = parse_orderby(qs.get("$orderby", ""))
 
     # Get the results
-    mongo_collection = db.get_collection(RootEntitySet.mongo_collection)
+    mongo_collection = db.get_collection(
+        RootEntitySet.mongo_collection,
+    ).with_options(
+        read_concern=ReadPreference.SECONDARY_PREFERRED,
+    )
     if prefix:
         seq_filter = {"Seq": filters.pop("Seq")} if "Seq" in filters else None
         pipeline = [
