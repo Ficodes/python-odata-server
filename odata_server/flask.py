@@ -8,10 +8,11 @@ from urllib.parse import parse_qs as urllib_parse_qs
 
 import abnf
 import pymongo
+import pymongo.database
 import werkzeug
 from flask import Blueprint, Response, abort, request, url_for
 
-from odata_server import edm
+from odata_server import edm, settings
 from odata_server.utils import (
     build_response_headers,
     expand_result,
@@ -79,7 +80,7 @@ class ODataBluePrint(Blueprint):
                         and entity_set.custom_insert_business is None
                     ):
                         logger.error(
-                            "EntitySet {} is managing an entity type that contains computed properties. The logic for initializaing those computed properties has to be configured".format(
+                            "EntitySet {} is managing an entity type that contains computed properties. The logic for initializing those computed properties has to be configured".format(
                                 entity_set.Name
                             )
                         )
@@ -126,9 +127,9 @@ class ODataBluePrint(Blueprint):
                                 }
                             )
                         )
-                        entity_set.annotations[
-                            "Org.OData.Core.V1.ResourcePath"
-                        ] = entity_set.Annotations[-1]
+                        entity_set.annotations["Org.OData.Core.V1.ResourcePath"] = (
+                            entity_set.Annotations[-1]
+                        )
 
                     resource_path = edm.get_annotation(
                         entity_set, "Org.OData.Core.V1.ResourcePath"
@@ -273,7 +274,14 @@ def parse_prefer_header(value, version="4.0"):
     return data
 
 
-def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
+def get(
+    mongo: pymongo.database.Database,
+    RootEntitySet,
+    subject,
+    id_value,
+    prefers,
+    session=None,
+):
     anonymous = not isinstance(subject, edm.EntitySet)
     qs = parse_qs(request.query_string)
     EntityType = subject.entity_type
@@ -324,7 +332,11 @@ def get(mongo, RootEntitySet, subject, id_value, prefers, session=None):
             pipeline.append({"$unwind": f"${prefix}"})
 
         pipeline.append({"$limit": 1})
-        results = tuple(mongo_collection.aggregate(pipeline, session=session))
+        results = tuple(
+            mongo_collection.aggregate(
+                pipeline, session=session, maxTimeMs=settings.MONGO_SEARCH_MAX_TIME_MS
+            )
+        )
         if len(results) == 0:
             abort(404)
         data = results[0]
