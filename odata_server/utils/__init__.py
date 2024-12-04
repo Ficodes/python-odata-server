@@ -3,10 +3,11 @@
 import re
 
 import abnf
+import pymongo.database
 from bson.son import SON
 from flask import abort, request, url_for
 
-from odata_server import edm
+from odata_server import edm, settings
 
 from .common import crop_result, format_key_predicate
 from .flask import add_odata_annotations
@@ -148,9 +149,9 @@ def process_common_expr(tree, filters, entity_type, prefix, joinop="andExpr"):
             regex_literal = re.escape(parse_primitive_literal(args[1].children[0]))
             if methodExpr.name == "containsMethodCallExpr":
                 filters[-1][field] = {
-                    "$regex": "(?!{})".format(regex_literal)
-                    if negation
-                    else regex_literal
+                    "$regex": (
+                        "(?!{})".format(regex_literal) if negation else regex_literal
+                    )
                 }
             elif methodExpr.name == "startsWithMethodCallExpr":
                 filters[-1][field] = {
@@ -398,7 +399,14 @@ def prepare_anonymous_result(result, RootEntitySet, expand_details, prefix):
     return expand_result(RootEntitySet, expand_details, croped_result, prefix=prefix)
 
 
-def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=False):
+def get_collection(
+    db: pymongo.database.Database,
+    RootEntitySet,
+    subject,
+    prefers,
+    filters=None,
+    count=False,
+):
     qs = parse_qs(request.query_string)
     anonymous = not isinstance(subject, edm.EntitySet)
 
@@ -440,7 +448,7 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
     orderby = parse_orderby(qs.get("$orderby", ""))
 
     # Get the results
-    mongo_collection = mongo.get_collection(RootEntitySet.mongo_collection)
+    mongo_collection = db.get_collection(RootEntitySet.mongo_collection)
     if prefix:
         seq_filter = {"Seq": filters.pop("Seq")} if "Seq" in filters else None
         pipeline = [
@@ -464,19 +472,29 @@ def get_collection(mongo, RootEntitySet, subject, prefers, filters=None, count=F
         pipeline.append({"$project": projection})
         pipeline.append({"$skip": offset})
         pipeline.append({"$limit": limit})
-        results = mongo_collection.aggregate(pipeline)
+        results = mongo_collection.aggregate(
+            pipeline, maxTimeMS=settings.MONGO_SEARCH_MAX_TIME_MS
+        )
     else:
-        cursor = mongo_collection.find(filters, projection)
+        cursor = mongo_collection.find(filters, projection).max_time_ms(
+            settings.MONGO_SEARCH_MAX_TIME_MS
+        )
         if len(orderby) > 0:
             cursor = cursor.sort(orderby)
         results = cursor.skip(offset).limit(limit)
 
     if count:
         if prefix == "":
-            count = mongo_collection.count_documents(filters)
+            count = mongo_collection.count_documents(
+                filters, maxTimeMS=settings.MONGO_COUNT_MAX_TIME_MS
+            )
         else:
             basepipeline.append({"$count": "count"})
-            result = tuple(mongo_collection.aggregate(basepipeline))
+            result = tuple(
+                mongo_collection.aggregate(
+                    basepipeline, maxTimeMS=settings.MONGO_COUNT_MAX_TIME_MS
+                )
+            )
             count = 0 if len(result) == 0 else result[0]["count"]
         odata_count = count
     else:

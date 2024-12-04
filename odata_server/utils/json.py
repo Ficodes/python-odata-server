@@ -43,7 +43,7 @@ def generate_collection_response(
     page_limit,
     prepare,
     odata_context,
-    odata_count=None,
+    odata_count: int | None = None,
     prepare_kwargs={},
 ):
 

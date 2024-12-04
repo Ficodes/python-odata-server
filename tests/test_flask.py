@@ -257,7 +257,9 @@ class BluePrintTestCase(unittest.TestCase):
                 )
                 mongo.reset_mock()
                 response = self.app.get("/Products?$orderby={}".format(orderby_expr))
-                mongo.get_collection().find().sort.assert_called_once_with(expected)
+                mongo.get_collection().find().max_time_ms().sort.assert_called_once_with(
+                    expected
+                )
                 self.assertEqual(response.status_code, 200)
 
     def test_get_entity_collection_api_empty_filter(self):
@@ -277,7 +279,9 @@ class BluePrintTestCase(unittest.TestCase):
         )
         for label, filter_expr in test_data:
             with self.subTest(msg=label):
-                mongo.get_collection().find().skip().limit.return_value = iter(())
+                mongo.get_collection().find().max_time_ms().skip().limit.return_value = iter(
+                    ()
+                )
                 response = self.app.get("/Products?$filter={}".format(filter_expr))
                 self.assertEqual(response.status_code, 200)
                 # force processing of the body generator
