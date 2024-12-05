@@ -3,6 +3,7 @@
 import datetime
 import json
 import uuid
+from typing import Optional
 from urllib.parse import urlencode
 
 from flask import request, url_for
@@ -43,7 +44,7 @@ def generate_collection_response(
     page_limit,
     prepare,
     odata_context,
-    odata_count: int | None = None,
+    odata_count: Optional[int] = None,
     prepare_kwargs={},
 ):
 
