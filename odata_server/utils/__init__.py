@@ -489,9 +489,12 @@ def get_collection(
 
     if count:
         if prefix == "":
-            count = mongo_collection.count_documents(
-                filters, maxTimeMS=settings.MONGO_COUNT_MAX_TIME_MS
-            )
+            try:
+                count = mongo_collection.count_documents(
+                    filters, maxTimeMS=settings.MONGO_COUNT_MAX_TIME_MS
+                )
+            except pymongo.errors.ExecutionTimeout:
+                abort(503)
         else:
             basepipeline.append({"$count": "count"})
             result = tuple(

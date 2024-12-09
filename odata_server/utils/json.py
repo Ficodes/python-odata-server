@@ -2,11 +2,15 @@
 
 import datetime
 import json
+import logging
 import uuid
 from typing import Optional
 from urllib.parse import urlencode
 
+import pymongo.errors
 from flask import request, url_for
+
+logger = logging.getLogger(__name__)
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -38,6 +42,18 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
+def _next_document(cursor: pymongo.cursor.Cursor) -> dict | None:
+    try:
+        result = next(cursor)
+    except StopIteration:
+        raise
+    except Exception as e:
+        logger.error(f"Error while sending in-stream results: {e}", exc_info=True)
+        return None
+
+    return result
+
+
 def generate_collection_response(
     results,
     offset,
@@ -57,7 +73,12 @@ def generate_collection_response(
 
     pending_iterations = page_limit
     try:
-        result = next(results)
+        result = _next_document(results)
+        # result is None if an error is raised while retrieving next document, stop here leaving an invalid json
+        # document
+        if result is None:
+            return
+
         data = prepare(result, **prepare_kwargs)
         yield json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode(
             "utf-8"
@@ -65,7 +86,12 @@ def generate_collection_response(
         pending_iterations -= 1
 
         while pending_iterations > 0:
-            result = next(results)
+            result = _next_document(results)
+            # result is None if an error is raised while retrieving next document, stop here leaving an invalid json
+            # document
+            if result is None:
+                return
+
             data = prepare(result, **prepare_kwargs)
             yield b"," + json.dumps(data, ensure_ascii=False, cls=JSONEncoder).encode(
                 "utf-8"
