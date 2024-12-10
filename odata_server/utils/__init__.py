@@ -4,6 +4,7 @@ import re
 
 import abnf
 import pymongo.database
+import pymongo.errors
 from bson.son import SON
 from flask import abort, request, url_for
 
@@ -451,7 +452,7 @@ def get_collection(
     mongo_collection = db.get_collection(
         RootEntitySet.mongo_collection,
     ).with_options(
-        read_concern=pymongo.ReadPreference.SECONDARY_PREFERRED,
+        read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED,
     )
     if prefix:
         seq_filter = {"Seq": filters.pop("Seq")} if "Seq" in filters else None
