@@ -42,7 +42,7 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def _next_document(cursor: pymongo.cursor.Cursor) -> dict | None:
+def _next_document(cursor: pymongo.cursor.Cursor) -> Optional[dict]:
     try:
         result = next(cursor)
     except StopIteration:
