@@ -1,5 +1,4 @@
 abnf<2
 arrow
-uuid
 pymongo
 flask
